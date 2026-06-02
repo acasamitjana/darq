@@ -1,0 +1,295 @@
+"""Per-subject registration pipeline: preprocessing → simulation → alignment → save."""
+import copy
+import pdb
+import time
+from os import makedirs
+from os.path import join, exists
+import subprocess
+
+import nibabel as nib
+import numpy as np
+import torch
+from skimage.morphology import binary_dilation, binary_opening, ball
+from sklearn.cluster import KMeans
+from sklearn.mixture import GaussianMixture as GMM
+from skimage import measure
+import pandas as pd
+
+from darq.src import models     # shared library
+from darq.utils import fn_utils      # shared library
+from darq.src.preprocessing import MorphologicalOperator, GaussianBlur, ToNumpy   # shared library
+from darq.config import BLUR_MIN, BLUR_MAX
+
+from darq.src.results import save_session_results
+
+
+# ── DaT mask utilities ───────────────────────────────────────────────────────
+
+def get_dat_transforms() -> list:
+    """Transforms applied to the simulated DaT image (MRI → DaT simulation)."""
+    return [
+        MorphologicalOperator(
+            keys=['simulated_dat'],
+            operator='opening',
+            struct_fn=lambda x: ball(3),
+        ),
+        GaussianBlur(
+            keys=['simulated_dat'],
+            sigma=lambda: BLUR_MIN + (BLUR_MAX - BLUR_MIN) * np.random.rand(3),
+            normalize_area=True,
+        ),
+    ]
+
+
+def _get_dat_mask(dat_image: np.ndarray, v2r: np.ndarray) -> np.ndarray:
+    """KMeans-based striatum mask, filtered by anatomical position."""
+    img = copy.deepcopy(dat_image)
+    n_clusters = 2
+    while True:
+        km  = KMeans(n_clusters=n_clusters, random_state=0, n_init='auto').fit(100 * img.reshape(-1, 1))
+        seg = km.labels_.reshape(img.shape)
+        means   = [np.mean(img[seg == u]) for u in np.unique(seg)]
+        ordered = np.argsort(means)
+
+        pre_mask = (seg == np.unique(seg)[ordered[-1]]) & (img > 0)
+        blobs, n = _label_blobs(pre_mask)
+        for nb in range(1, n + 1):
+            coord = _blob_centre(blobs, nb, v2r)
+            if np.abs(coord[0]) > 35 or coord[2] < -40:
+                img[blobs == nb] = np.min(dat_image)
+                pre_mask[blobs == nb] = 0
+
+        roi_pct = np.sum(pre_mask) / np.prod(seg.shape) * 100
+        if roi_pct > 1 or roi_pct == 0:
+            n_clusters += 1
+        else:
+            break
+
+    mask = (seg == np.unique(seg)[ordered[-1]]) & (img > 0)
+    mask = binary_opening(mask, ball(3))
+    blobs, n = _label_blobs(mask)
+    counts = np.bincount(blobs.reshape(-1))
+    for nb in range(1, n + 1):
+        coord = _blob_centre(blobs, nb, v2r)
+        if counts[nb] < 500 or np.abs(coord[0]) > 35 or coord[2] < -40:
+            mask[blobs == nb] = 0
+    return mask
+
+
+def _get_dat_mask_prior(dat_image: np.ndarray, prior: np.ndarray,
+                         percentage: float = 1.0) -> np.ndarray:
+    """KMeans mask restricted to a prior region."""
+    img = copy.deepcopy(dat_image) * prior
+    n_clusters = 2
+    while True:
+        km  = KMeans(n_clusters=n_clusters, random_state=0, n_init='auto').fit(100 * img.reshape(-1, 1))
+        seg = km.labels_.reshape(img.shape)
+        means   = [np.mean(img[seg == u]) for u in np.unique(seg)]
+        ordered = np.argsort(means)
+        pre_mask = (seg == np.unique(seg)[ordered[-1]]) & (img > 0)
+        if np.sum(pre_mask) / np.prod(seg.shape) * 100 > percentage or np.sum(pre_mask) == 0:
+            n_clusters += 1
+        else:
+            break
+
+    mask = (seg == np.unique(seg)[ordered[-1]]) & (img > 0)
+    blobs, n = _label_blobs(mask)
+    counts = np.bincount(blobs.reshape(-1))
+    for nb in range(1, n + 1):
+        if counts[nb] < 500:
+            mask[blobs == nb] = 0
+    return mask
+
+
+def _flip_dat(dat_image: np.ndarray, v2r_symm: np.ndarray,
+               agg: str = 'mean') -> np.ndarray:
+    """Flip image through the LR symmetry plane defined by v2r_symm."""
+    T_flip = np.diag([-1., 1., 1., 1.])
+    T = torch.from_numpy(np.linalg.inv(v2r_symm) @ T_flip @ v2r_symm).float()
+    grid = torch.meshgrid([torch.arange(s) for s in dat_image.shape], indexing='ij')
+    di = T[0, 0]*grid[0] + T[0, 1]*grid[1] + T[0, 2]*grid[2] + T[0, 3]
+    dj = T[1, 0]*grid[0] + T[1, 1]*grid[1] + T[1, 2]*grid[2] + T[1, 3]
+    dk = T[2, 0]*grid[0] + T[2, 1]*grid[1] + T[2, 2]*grid[2] + T[2, 3]
+    t  = torch.from_numpy(dat_image)
+    tf = fn_utils.fast_3D_interp_torch(t, di, dj, dk, mode='linear')
+    if agg == 'mean':
+        return 0.5 * (t + tf).numpy()
+    if agg == 'max':
+        return torch.max(torch.stack([t, tf]), 0).values.numpy()
+    if agg == 'sum':
+        return (t + tf).numpy()
+    return tf.numpy()  # 'flip'
+
+
+def _label_blobs(mask):
+    return measure.label(mask, connectivity=2, return_num=True)
+
+
+def _blob_centre(blobs, nb, v2r):
+    x, y, z = np.where(blobs == nb)
+    return v2r @ np.array([np.median(x), np.median(y), np.median(z), 1])
+
+
+# ── Optimiser factory ─────────────────────────────────────────────────────────
+
+def _build_optimizer(model, opt_str: str):
+    if opt_str == 'adam':
+        lr = 1e-3
+        print(f'    Optimizer: ADAM  lr={lr}')
+        return torch.optim.Adam(model.parameters(), lr=lr)
+    if opt_str == 'lbfgs':
+        lr, max_iter = 1e-1, 10
+        print(f'    Optimizer: LBFGS lr={lr}  max_iter={max_iter}')
+        return torch.optim.LBFGS(model.parameters(), lr=lr, max_iter=max_iter,
+                                  line_search_fn='strong_wolfe')
+    lr = 1e-3
+    print(f'    Optimizer: SGD   lr={lr}')
+    return torch.optim.SGD(model.parameters(), lr=lr)
+
+
+# ── Main subject pipeline ─────────────────────────────────────────────────────
+
+def process_subject(data_dict: dict, preproc_tf: dict, dat_tf: list,
+                    main_dict: dict, args) -> dict | None:
+    if data_dict is None:
+        return None
+
+    device     = main_dict['device']
+    output_dir = main_dict['output_dir']
+    tag        = data_dict['id']
+    temp_dir   = join(output_dir, 'tmp')
+
+    if not exists(output_dir):
+        makedirs(output_dir)
+
+    # Skip or reuse already-registered sessions
+    sbr_file = join(output_dir, 'sbr.tsv')
+    if exists(sbr_file) and not args.force:
+        return {'exit': 0}
+
+
+    t0 = time.time()
+
+    # ── Step 1: preprocessing ─────────────────────────────────────────────────
+    print(' * Preprocessing.')
+    for tf in preproc_tf.values():
+        data_dict = tf(data_dict)
+
+    np.save(join(output_dir, tag + '_space-T1wdseg_rot.npy'), data_dict['rot_label_v2r'])
+    np.save(join(output_dir, tag + '_space-dat_rot.npy'),     data_dict['rot_dat_v2r'])
+
+    # ── Step 2: DaT symmetry mask ─────────────────────────────────────────────
+    print(' * DaT symmetry and mask.')
+    template_v2r    = data_dict['template_v2r']
+    dat_raw         = data_dict['template_dat_image']
+    dat_symm        = 0.5 * (dat_raw + _flip_dat(dat_raw, template_v2r, agg='flip'))
+    mask_symm       = _get_dat_mask(dat_symm, template_v2r)
+    mask_dilated    = binary_dilation(mask_symm, np.ones((10, 10, 10)))
+
+    _, crop = fn_utils.crop_label(mask_dilated, margin=5)
+    cuboid  = np.zeros_like(mask_dilated)
+    cuboid[crop[0][0]:crop[0][1], crop[1][0]:crop[1][1], crop[2][0]:crop[2][1]] = 1
+
+    mask_raw  = _get_dat_mask_prior(dat_raw, cuboid, percentage=1)
+    mask_flip = _flip_dat(mask_raw, template_v2r, agg='flip')
+    dat_mask  = (mask_raw + mask_flip) > 0
+
+    M = np.percentile(dat_raw[dat_mask], 99.5)
+    m = np.percentile(dat_raw[dat_mask], 0.5)
+    dat_image = np.clip((dat_raw - m) / (M - m), 0, None)
+    dat_image[~dat_mask] = 0
+
+    # GMM-based brain foreground
+    n_clusters = 6
+    dat_seg     = GMM(n_components=n_clusters, random_state=0).fit_predict(dat_symm.reshape(-1, 1))
+    dat_seg     = dat_seg.reshape(dat_symm.shape)
+    means_order = np.argsort([np.mean(dat_symm[dat_seg == u]) for u in np.unique(dat_seg)])
+    brain_dat   = np.zeros_like(dat_symm)
+    for i_k in means_order[1:][::-1]:   # skip background cluster
+        brain_dat[dat_seg == i_k] = 1
+        if np.sum(brain_dat) > 2 * np.sum(data_dict['template_mask_brain']):
+            break
+
+    # ── Step 3: MRI DaT simulation ────────────────────────────────────────────
+    print(' * MRI DaT simulation and mask.')
+    data_dict = {'simulated_dat': data_dict['template_mask_str'],
+                 'v2r': template_v2r, **data_dict}
+    for tf in dat_tf:
+        data_dict = tf(data_dict)
+
+    km      = KMeans(n_clusters=2, random_state=0, n_init='auto').fit(data_dict['simulated_dat'].reshape(-1, 1))
+    mri_seg = km.labels_.reshape(data_dict['simulated_dat'].shape)
+    hi_idx  = np.argmax(km.cluster_centers_)
+    mri_mask = mri_seg == hi_idx
+    M = np.max(data_dict['simulated_dat'][mri_mask])
+    m = np.min(data_dict['simulated_dat'][mri_mask])
+    sim_dat = (data_dict['simulated_dat'] - m) / (M - m)
+
+    mri_cog  = [np.mean(idx) for idx in np.where(mri_mask)]
+    dat_cog  = [np.mean(idx) for idx in np.where(dat_mask)]
+    tx_init  = np.asarray(dat_cog) - np.asarray(mri_cog)
+
+    # ── Step 4: registration ──────────────────────────────────────────────────
+    print(' * MRI-DaT registration.')
+    ref_mask = (np.stack([data_dict['template_mask_brain'],
+                           data_dict['template_mask_occ']], axis=0)[np.newaxis] > 0.5).astype('float')
+    flo_mask = (np.stack([brain_dat, brain_dat], axis=0)[np.newaxis] > 0.5).astype('float')
+
+    tensor_dict = {
+        'ref_image':   torch.as_tensor(mri_mask[np.newaxis, np.newaxis], dtype=torch.float).to(device),
+        'ref_mask':    torch.as_tensor(ref_mask, dtype=torch.float).to(device),
+        'flo_image':   torch.as_tensor(dat_mask[np.newaxis, np.newaxis], dtype=torch.float).to(device),
+        'flo_mask':    torch.as_tensor(flo_mask, dtype=torch.float).to(device),
+        'template_v2r': template_v2r,
+    }
+
+    reg_model = models.InstanceRigidModelClassic(
+        data_dict['template_space'].shape,
+        ref_v2r=template_v2r.astype('float32'),
+        flo_v2r=template_v2r.astype('float32'),
+        tx_factor=np.array([10, 1/1000, 1/1000]),
+        angle_factor=np.array([1/100, 1, 1]),
+        tx_init=tx_init,
+        device=device,
+    ).to(device)
+
+    optimizer  = _build_optimizer(reg_model, args.opt_str)
+    loss_dict  = _build_loss_dict(device, template_v2r)
+
+    print('    Losses: ' + '; '.join(f'{k}(w={v["weight"]})' for k, v in loss_dict.items()))
+    session = models.JointInstanceReg(
+        loss_dict, main_dict, da=[], trainable_keys={'reg': 'reg'}, verbose=True,
+    )
+    tensor_dict = session.register(tensor_dict, {'reg': reg_model}, {'reg': optimizer})
+    loss = tensor_dict['loss']
+    print(f'    Final loss: {loss}')
+
+    # ── Step 5: save ──────────────────────────────────────────────────────────
+    tensor_dict = ToNumpy(keys=['ref_image', 'flo_image', 'reg_image'], to_nibabel=True)(tensor_dict)
+    affine_ras  = np.squeeze(tensor_dict['affine_ras'].cpu().detach().numpy())
+    np.save(join(output_dir, tag + '_space-symmetricT1w_aff.npy'), affine_ras)
+
+    save_session_results(data_dict['dat'], data_dict['label'], loss=loss, tag=data_dict['id'],  results_dir=output_dir)
+
+    print(f'Done in {round(time.time() - t0, 2)}s.\n')
+    subprocess.call(['rm', '-rf', temp_dir])
+    return {'exit': 0}
+
+
+def _build_loss_dict(device: str, v2r: np.ndarray) -> dict:
+    return {
+        'reg':         {'loss': fn_utils.DiceLoss(name='reg'),             'weight': 1},
+        'reg_label':   {'loss': fn_utils.DiceOverTrueLoss(name='reg_label'), 'weight': 2},
+        'reg_uptake':  {'loss': fn_utils.MaxUptake(device=device, name='reg_uptake'), 'weight': 0.},
+        'reg_lr':      {'loss': fn_utils.Symmetry(name='reg_lr', v2r=v2r, device=device, loss='l1'), 'weight': 0.5},
+        'regularizer': {'loss': fn_utils.L2Loss(name='regularizer'),       'weight': 1},
+    }
+
+
+# ── Parallel wrapper ──────────────────────────────────────────────────────────
+
+def process_fn_parallel(fn, *args, **kwargs):
+    try:
+        return fn(*args, **kwargs)
+    except Exception:
+        return None
