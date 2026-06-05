@@ -1,19 +1,15 @@
 """Per-subject registration pipeline: preprocessing → simulation → alignment → save."""
 import copy
-import pdb
 import time
 from os import makedirs
 from os.path import join, exists
 import subprocess
-
-import nibabel as nib
 import numpy as np
 import torch
 from skimage.morphology import binary_dilation, binary_opening, ball
 from sklearn.cluster import KMeans
 from sklearn.mixture import GaussianMixture as GMM
 from skimage import measure
-import pandas as pd
 
 from darq.src import models     # shared library
 from darq.utils import fn_utils      # shared library
@@ -163,10 +159,11 @@ def process_subject(data_dict: dict, preproc_tf: dict, dat_tf: list,
         makedirs(output_dir)
 
     # Skip or reuse already-registered sessions
-    sbr_file = join(output_dir, 'sbr.tsv')
-    if exists(sbr_file) and not args.force:
-        return {'exit': 0}
+    sbr_file = join(output_dir, tag + '_sbr.tsv')
 
+    if exists(sbr_file) and not args.force:
+        print(f' * Skipping {tag}: results already exist. Use --force to recompute.')
+        return {'exit': 0}
 
     t0 = time.time()
 

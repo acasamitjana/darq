@@ -25,8 +25,6 @@ def parse_args() -> argparse.Namespace:
                         choices=['lbfgs', 'adam', 'sgd'],
                         help="Optimiser to use for registration.")
 
-    parser.add_argument("--diceloss", action='store_true',
-                        help="Use Dice instead of LNCC similarity.")
 
     # execution flags
     parser.add_argument('--num_cores', default=1, type=int,

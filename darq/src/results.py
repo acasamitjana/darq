@@ -1,6 +1,4 @@
 """Save per-session registration outputs and compute SBR / symmetry metrics."""
-import copy
-from os import makedirs
 from os.path import join, exists
 from functools import partial
 
@@ -92,7 +90,7 @@ def save_session_results(dat_orig_proxy, labels_orig_proxy, loss, tag: str, resu
 
 
 def _write_sbr_tsv(dat_image, dat_fov, mask_cau, mask_put, mask_str, mask_occ, loss, results_dir, tag, force_flag=False):
-    out_file = join(results_dir, tag + '_sbr.tsv')
+    out_file = join(results_dir, tag + '_sbr.tsv') #poner el mismo que en el otro 
     cols = ['id', 'processing', 'loss',  'hemi', 'aggregate', 'dat_str', 'dat_cau', 'dat_put', 'dat_occ']
 
     prev = _load_prev_tsv(out_file, cols, ['id', 'processing', 'hemi', 'aggregate'])

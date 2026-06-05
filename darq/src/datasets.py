@@ -1,6 +1,5 @@
 # py
 
-
 # third party imports
 import nibabel as nib
 from torch.utils.data import Dataset
@@ -45,24 +44,6 @@ class MRI_DaT(Dataset):
 
         return mask_str.astype('float'), mask_occ.astype('float')
 
-    def _get_DAT_seg(self, dat_image, v2r):
-        n_clusters = 4
-        while True:
-            kmeans = KMeans(n_clusters=n_clusters, random_state=0, n_init="auto").fit(dat_image.reshape((-1, 1)))
-            dat_seg = kmeans.labels_.reshape(dat_image.shape)
-            dat_roi_means = [np.mean(dat_image[dat_seg == ul]) for ul in np.unique(dat_seg)]
-            dat_rois_ordered = np.argsort(dat_roi_means)
-            dat_roi_size = np.bincount(dat_seg.reshape(-1)) / np.prod(dat_seg.shape) * 100
-            if dat_roi_size[dat_rois_ordered[-1]] > 1:
-                n_clusters += 1
-            else:
-                break
-
-        idx_M = dat_rois_ordered[-1]
-        dat_str_mask = dat_seg == np.unique(dat_seg)[idx_M]
-        dat_brain_mask = binary_opening(dat_image > filters.threshold_otsu(dat_image), np.ones((3, 3, 3))).astype('float32')
-
-        return dat_image, dat_str_mask.astype('float'), dat_brain_mask.astype('float')
 
     def __getitem__(self, index):
         if index not in self.subject_df.index:
@@ -95,21 +76,10 @@ class MRI_DaT(Dataset):
         subject['mri_image'] = np.array(subject['mri'].dataobj)
         subject['mask_str'], subject['mask_occ'] = self._get_ROI_masks(subject['label_image'])
         non_cerebrum = (subject['label_image'] <= 0) | (subject['label_image'] == 7) | (subject['label_image'] == 8) | (subject['label_image'] == 46) | (subject['label_image'] == 47) | (subject['label_image'] == 15) | (subject['label_image'] == 16) | (subject['label_image'] == 24)
-        subject['mask_brain'] = (1 - non_cerebrum).astype('float')#(subject['label_image'] > 0).astype('float')
+        subject['mask_brain'] = (1 - non_cerebrum).astype('float')
         subject['mask_cau'] = (subject['label_image'] == 11).astype('float')
         subject['mask_pu'] = (subject['label_image'] == 12).astype('float')
 
-        # one hot encoding of cau + put
-        # str_lut = {0: 0, 11: 1, 12: 2}
-        # label_parts_image = fn_utils.one_hot_encoding(subject['label_image'], categories=str_lut).astype('float')
-        # channels last because it will go to a proxy
-        # label_parts_image = np.transpose(label_parts_image, axes=(1, 2, 3, 0))
-        # subject['mask_cau'] = label_parts_image[..., 1]
-        # subject['mask_pu'] = label_parts_image[..., 2]
-        # add brain mask
-        # subject['label_image'] = np.concatenate([np.sum(label_parts_image[..., 1:], axis=-1, keepdims=True),
-        #                                          mask_brain[..., np.newaxis]], axis=-1)
-        # subject['label_image'] = mask_brain[..., np.newaxis]
 
         dat_image = np.squeeze(np.array(subject['dat'].dataobj).astype('float32'))
         dat_v2r = subject['dat'].affine
@@ -129,7 +99,6 @@ class MRI_DaT(Dataset):
         dat_res = np.sqrt(np.sum(dat_v2r * dat_v2r, axis=0))[:-1]
         mri_res = np.sqrt(np.sum(subject['label_v2r'] * subject['label_v2r'], axis=0))[:-1]
         n_clusters = 6
-        # dat_seg = KMeans(n_clusters=n_clusters, random_state=0, n_init="auto").fit_predict(dat_image.reshape((-1, 1)))
         dat_seg = GMM(n_components=n_clusters, random_state=0).fit_predict(dat_image.reshape((-1, 1)))
         dat_seg = dat_seg.reshape(dat_image.shape)
         dat_roi_means = [np.mean(dat_image[dat_seg == ul]) for ul in np.unique(dat_seg)]
@@ -137,17 +106,12 @@ class MRI_DaT(Dataset):
 
         dat_brain = np.zeros(dat_image.shape + (1, ))
         dat_brain[dat_seg == dat_rois_ordered[-1], 0] = 1
-        dat_rois_ordered = dat_rois_ordered[1:-1] #skip the background and foreground and build a single class
+        dat_rois_ordered = dat_rois_ordered[1:-1] 
         for i, i_k in enumerate(dat_rois_ordered[::-1]):
-            # print(i_k)
             dat_brain[dat_seg == i_k, 0] = 1
-            # print(np.prod(dat_res) * np.sum(dat_brain))
-            # print(np.prod(mri_res) * np.sum(subject['mask_brain']))
             if np.prod(dat_res) * np.sum(dat_brain[..., 0]) > 2 * np.prod(mri_res) * np.sum(subject['mask_brain']):
-                # dat_brain = dat_brain[..., :i+1]
                 break
 
-        # dat_image, dat_str, dat_brain = self._get_DAT_seg(dat_image, dat_v2r)
 
         subject['dat_image'] = dat_image
         subject['dat_str'] = dat_brain

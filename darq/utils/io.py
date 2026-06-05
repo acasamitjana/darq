@@ -1,14 +1,9 @@
 """Save per-session registration outputs and compute SBR / symmetry metrics."""
-import copy
 import os
 from os import makedirs
 from os.path import join, exists
 
-import nibabel as nib
 import numpy as np
-import pandas as pd
-import torch
-from sklearn.cluster import KMeans
 
 
 def create_dir(results_dir, subdirs=None):

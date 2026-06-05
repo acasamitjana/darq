@@ -19,5 +19,4 @@ REGISTRATION_DEFAULTS = {
 }
 
 # ── DaT simulation hyperparameters ───────────────────────────────────────────
-RES_MIN, RES_MAX    = 3, 3
 BLUR_MIN, BLUR_MAX  = 5, 5

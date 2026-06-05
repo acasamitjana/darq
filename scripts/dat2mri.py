@@ -37,26 +37,15 @@ def main():
 
     # ── Processing loop ───────────────────────────────────────────────────────
     failed = []
-
-    if args.num_cores == 1:
-        for it, index in enumerate(subject_list.index):
-            print(f'Subject: {index}  ({it}/{len(dataset)})')
+    for it, index in enumerate(subject_list.index):
+        print(f'Subject: {index}  ({it}/{len(dataset)})')
+        try:
             result = process_subject(dataset[index], preprocessing_tf, dat_tf, main_dict, args)
-            try:
-                result = process_subject(dataset[index], preprocessing_tf, dat_tf, main_dict, args)
-            except Exception as e:
-                print(f'  [Error] {e}')
-                result = None
-            if result is None:
-                failed.append(str(index))
-    else:
-        Parallel(n_jobs=args.num_cores)(
-            delayed(process_fn_parallel)(
-                process_subject, dataset[index], preprocessing_tf, dat_tf, main_dict, args
-            )
-            for index in subject_list.index
-            if index[1] != 'ses-BL'
-        )
+        except Exception as e:
+            print(f'  [Error] {e}')
+            result = None
+        if result is None:
+            failed.append(str(index))
 
     print('\n')
     print('Failed subjects:', len(failed), '/', len(subject_list))
