@@ -6,6 +6,13 @@ SEG_DIR    = os.environ.get('SEG_DIR')
 
 # ── Device ───────────────────────────────────────────────────────────────────
 def get_device(cpu_flag: bool) -> str:
+    """Return the computation device selected by the user.
+
+    :param cpu_flag: If True, force CPU execution. If False, select CUDA execution.
+    
+    :return: Device string used by PyTorch, either ``'cpu'`` or ``'cuda'``.
+    """
+    
     return 'cpu' if cpu_flag else 'cuda'
 
 # ── Training / optimisation ───────────────────────────────────────────────────

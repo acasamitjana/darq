@@ -16,12 +16,19 @@ from darq.utils import fn_utils
 
 
 class MRI_DaT(Dataset):
+    """PyTorch dataset for paired MRI, SynthSeg and DaTSCAN data.
+
+    Each item loads one subject/session, prepares anatomical masks from the SynthSeg
+    labels, estimates DaT foreground masks and returns the dictionary required by the
+    registration pipeline.
+    """
+
     def __init__(self,
-                 subject_df,
-                 transforms=None,
-                 crop_dat=False,
-                 crop_labels=False,
-                 ):
+                subject_df,
+                transforms: list | None = None,
+                crop_dat: bool = False,
+                crop_labels: bool = False,
+                 ) -> None:
 
         super().__init__()
 
@@ -33,7 +40,14 @@ class MRI_DaT(Dataset):
         self.crop_dat = crop_dat
         self.crop_labels = crop_labels
 
-    def _get_ROI_masks(self, lab_image):
+    def _get_ROI_masks(self, lab_image: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """Build striatal and occipital masks from a SynthSeg label image.
+
+        :param lab_image: SynthSeg label image as a NumPy array.
+
+        :return: Two floating masks: striatum mask and occipital cortex reference mask.
+        """
+
         mask_str_L = ((lab_image == 11) + (lab_image == 12))
         mask_str_R = ((lab_image == 50) + (lab_image == 51))
         mask_str = mask_str_L + mask_str_R
@@ -45,7 +59,15 @@ class MRI_DaT(Dataset):
         return mask_str.astype('float'), mask_occ.astype('float')
 
 
-    def __getitem__(self, index):
+    def __getitem__(self, index) -> dict | None:
+        """Load and prepare one subject/session for processing.
+
+        :param index: Subject/session index in the dataset dataframe.
+
+        :return: Dictionary containing loaded images, masks, affine matrices and metadata,
+            or None if the index is not available.
+        """
+
         if index not in self.subject_df.index:
             return None
 
@@ -127,5 +149,10 @@ class MRI_DaT(Dataset):
 
         return subject
 
-    def __len__(self):
+    def __len__(self) -> int:
+        """Return the number of subject/sessions available in the dataset.
+
+        :return: Number of rows in the subject dataframe.
+        """
+        
         return self.N

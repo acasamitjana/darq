@@ -1,4 +1,5 @@
 import re
+from typing import Any
 
 import torch
 import torch.nn.functional as F
@@ -12,7 +13,14 @@ from scipy.interpolate import RegularGridInterpolator as rgi
 # ── Type- based functions ────────────────────────────────────────────────
 
 
-def get_type_dict(data):
+def get_type_dict(data) -> dict:
+    """Return basic type metadata needed to restore an object after conversion.
+
+    :param data: Input object, typically a NumPy array or PyTorch tensor.
+
+    :return: Dictionary containing the object type, dtype and optional tensor device.
+    """
+
     t_dict = {}
     t_dict['type'] = type(data)
     t_dict['dtype'] = data.dtype
@@ -22,7 +30,17 @@ def get_type_dict(data):
     return t_dict
 
 
-def convert_to_type(data, type, dtype=None, device=None):
+def convert_to_type(data: Any, type: type, dtype: Any = None, device: Any = None) -> Any:
+    """Convert data to a requested array or tensor type.
+
+    :param data: Input data to convert.
+    :param type: Target Python type, usually ``np.ndarray`` or ``torch.Tensor``.
+    :param dtype: Optional target dtype.
+    :param device: Optional target device when converting to a tensor.
+
+    :return: Converted data with the requested type when supported.
+    """
+
     if type == np.ndarray:
         return convert_to_numpy(data, dtype=dtype)
     elif type == torch.Tensor:
@@ -31,7 +49,17 @@ def convert_to_type(data, type, dtype=None, device=None):
     return data
 
 
-def convert_to_tensor(data, dtype=None, device=None):
+def convert_to_tensor(data: Any, dtype: Any = None, device: Any = None) -> torch.Tensor:
+    """Recursively convert NumPy arrays and containers to PyTorch tensors.
+
+    :param data: Input data, container or scalar to convert.
+    :param dtype: Optional target tensor dtype.
+    :param device: Optional target tensor device.
+
+    :return: Converted tensor or container with tensor values where conversion is
+        possible.
+    """
+    
     if isinstance(data, np.ndarray):
         # skip array of string classes and object, refer to:
         # https://github.com/pytorch/pytorch/blob/v1.9.0/torch/utils/data/_utils/collate.py#L13
@@ -53,21 +81,16 @@ def convert_to_tensor(data, dtype=None, device=None):
     return data
 
 
-def convert_to_numpy(data, dtype=None):
-    """
-    Utility to convert the input data to a numpy array. If passing a dictionary, list or tuple,
-    recursively check every item and convert it to numpy array.
+def convert_to_numpy(data: Any, dtype: Any = None) -> Any:
+    """Recursively convert tensors and numeric values to NumPy arrays.
 
-    Args:
-        data: input data can be PyTorch Tensor, numpy array, list, dictionary, int, float, bool, str, etc.
-            will convert Tensor, Numpy array, float, int, bool to numpy arrays, strings and objects keep the original.
-            for dictionary, list or tuple, convert every item to a numpy array if applicable.
-        dtype: target data type when converting to numpy array.
-        wrap_sequence: if `False`, then lists will recursively call this function.
-            E.g., `[1, 2]` -> `[array(1), array(2)]`. If `True`, then `[1, 2]` -> `array([1, 2])`.
-        safe: if `True`, then do safe dtype convert when intensity overflow. default to `False`.
-            E.g., `[256, -12]` -> `[array(0), array(244)]`. If `True`, then `[256, -12]` -> `[array(255), array(0)]`.
+    :param data: Input data, container or scalar to convert.
+    :param dtype: Optional target NumPy dtype.
+
+    :return: Converted NumPy array or container with NumPy values where conversion is
+        possible.
     """
+
     if isinstance(data, torch.Tensor):
         data = np.asarray(data.detach().to(device="cpu").numpy())
 
@@ -94,7 +117,16 @@ def convert_to_numpy(data, dtype=None):
 
 # ── Deformation-based functions ──────────────────────────────────────────
 
-def crop_label(mask, margin=10, threshold=0):
+def crop_label(mask: np.ndarray, margin: int = 10, threshold: float = 0) -> tuple[np.ndarray, list]:
+    """Crop a mask around all voxels above a threshold.
+
+    :param mask: Input mask or label image.
+    :param margin: Number of voxels added around the detected bounding box, either scalar or
+        per-axis list.
+    :param threshold: Minimum value considered foreground.
+
+    :return: Tuple containing the cropped mask and the crop coordinate ranges.
+    """
 
     ndim = len(mask.shape)
     if isinstance(margin, int):
@@ -115,13 +147,20 @@ def crop_label(mask, margin=10, threshold=0):
 
     return mask_cropped, crop_coord
 
-def rescale_voxel_factor(volume, aff, factor, not_aliasing=False, method='linear'):
+def rescale_voxel_factor(volume: np.ndarray,
+                        aff: np.ndarray,
+                        factor,
+                        not_aliasing: bool = False,
+                        method: str = "linear",) -> tuple[np.ndarray, np.ndarray]:
     """This function resizes the voxels of a volume to a new provided size, while adjusting the header to keep the RAS
+
     :param volume: a numpy array
     :param aff: affine matrix of the volume
     :param new_vox_size: new voxel size (3 - element numpy vector) in mm
+
     :return: new volume and affine matrix
     """
+
     if isinstance(factor, (int, float)):
         factor = np.asarray([factor]*3)
 
@@ -168,7 +207,24 @@ def rescale_voxel_factor(volume, aff, factor, not_aliasing=False, method='linear
     return volume2, aff2
 
 
-def fast_3D_interp_torch(X, II, JJ, KK, mode):
+def fast_3D_interp_torch(X: torch.Tensor,
+                        II: torch.Tensor,
+                        JJ: torch.Tensor,
+                        KK: torch.Tensor,
+                        mode: str,) -> torch.Tensor:
+    """Resize a volume by a voxel scaling factor and update its affine matrix.
+
+    :param volume: Input image volume as a NumPy array.
+    :param aff: 4x4 affine matrix of the input volume.
+    :param factor: Scaling factor applied to the voxel grid. It can be a scalar or a
+        3-element sequence.
+    :param not_aliasing: If True, disables Gaussian anti-aliasing before resampling.
+    :param method: Interpolation method used during resampling, such as ``'linear'`` or
+        ``'nearest'``.
+
+    :return: Tuple containing the resampled volume and the updated affine matrix.
+    """
+
     if mode == 'nearest':
         IIr = torch.round(II).long()
         JJr = torch.round(JJ).long()
@@ -233,7 +289,19 @@ def fast_3D_interp_torch(X, II, JJ, KK, mode):
     return Y
 
 
-def fast_3D_interp_field_torch(X, II, JJ, KK, mode='linear', pad=0.):
+def fast_3D_interp_field_torch(X: torch.Tensor, II: torch.Tensor, JJ: torch.Tensor, KK: torch.Tensor, mode: str = 'linear', pad: float = 0.0) -> torch.Tensor:
+    """Interpolate a 3D tensor at arbitrary voxel coordinates.
+
+    :param X: Input 3D tensor.
+    :param II: Sampling coordinates along the first image axis.
+    :param JJ: Sampling coordinates along the second image axis.
+    :param KK: Sampling coordinates along the third image axis.
+    :param mode: Interpolation mode, either ``'linear'`` or ``'nearest'``.
+    :param pad: Value used to initialize samples outside valid coordinates.
+
+    :return: Interpolated tensor with the same spatial shape as the coordinate grids.
+    """
+
     num_channels = X.shape[-1]
     if mode == 'nearest':
         IIr = torch.round(II).long()
@@ -317,8 +385,24 @@ def fast_3D_interp_field_torch(X, II, JJ, KK, mode='linear', pad=0.):
     return Y
 
 
-def vol_resample_fast(ref_proxy, flo_proxy, proxyflow=None, mode='linear', return_np=False, **kwargs):
+def vol_resample_fast(ref_proxy: nib.Nifti1Image,
+                    flo_proxy: nib.Nifti1Image,
+                    proxyflow=None,
+                    mode: str = "linear",
+                    return_np: bool = False,
+                    **kwargs,) -> nib.Nifti1Image | np.ndarray:
+    """Resample a floating NIfTI image into the voxel grid of a reference image.
 
+    :param ref_proxy: Reference NIfTI proxy defining the output shape and affine.
+    :param flo_proxy: Floating NIfTI proxy whose data will be resampled.
+    :param proxyflow: Optional deformation field proxy applied before sampling the floating
+        image.
+    :param mode: Interpolation mode used for scalar images.
+    :param return_np: If True, return only the NumPy array instead of a NIfTI image.
+    :param kwargs: Reserved keyword arguments for future extensions.
+
+    :return: Resampled NIfTI image, or NumPy array when ``return_np`` is True.
+    """
     ref_v2r = (ref_proxy.affine).astype('float32')
     target_v2r = (flo_proxy.affine).astype('float32')
 
@@ -381,7 +465,17 @@ def vol_resample_fast(ref_proxy, flo_proxy, proxyflow=None, mode='linear', retur
         return nib.Nifti1Image(reg_image, ref_proxy.affine)
 
 
-def create_template_space(proxy_list, resolution=None, mode='linear'):
+def create_template_space(proxy_list: list,
+                        resolution=None,
+                        mode: str | list = "linear",) -> tuple[np.ndarray, np.ndarray]:
+    """Create a common NumPy template space covering multiple proxy images.
+
+    :param proxy_list: List of proxy dictionaries containing data, shape and affine entries.
+    :param resolution: Output voxel spacing. If None, the first proxy resolution is reused.
+    :param mode: Interpolation mode or list of modes used for each proxy.
+
+    :return: Tuple containing resampled images and the template-space affine matrix.
+    """
 
     if resolution is None:
         ref_v2r = proxy_list[0]['affine'].astype('float32')
@@ -464,13 +558,17 @@ def create_template_space(proxy_list, resolution=None, mode='linear'):
 
     return images_out, temp_v2r
 
-def create_template_space_tensor(proxy_list, resolution=None, mode='linear'):
-    '''
-    :param proxy_list: list of dictionaries, each one containing ['data', 'shape, and 'affine'] keys.
-    :param resolution:
-    :param mode:
-    :return:
-    '''
+def create_template_space_tensor(proxy_list: list, resolution=None, mode: str | list = "linear") -> tuple[torch.Tensor, torch.Tensor]:
+    """Create a common tensor template space covering multiple proxy images.
+
+    :param proxy_list: List of proxy dictionaries containing tensor data, shape and affine
+        entries.
+    :param resolution: Output voxel spacing. If None, the first proxy resolution is reused.
+    :param mode: Interpolation mode or list of modes used for each proxy.
+
+    :return: Tuple containing resampled tensors and the template-space affine matrix.
+    """
+
     device = proxy_list[0]['data'].device
     if resolution is None:
         ref_v2r = proxy_list[0]['affine']
@@ -560,22 +658,56 @@ def create_template_space_tensor(proxy_list, resolution=None, mode='linear'):
 # ── Loss functions ───────────────────────────────────────────────────────
 
 class _Loss(nn.Module):
-    def __init__(self, name=None):
+    """Base class for named PyTorch loss functions.
+    The name is used when logging individual and weighted loss values during
+    registration.
+    """
+
+    def __init__(self, name: str | None = None) -> None:
+        """Initialize the loss name used for logging.
+        :param name: Optional human-readable loss name.
+        """
+
         super().__init__()
         self.name = name
 
 class SSIM(_Loss):
-    def __init__(self, name=None, reduction='mean', *args, **kwargs):
+    """Base wrapper for voxelwise similarity losses with optional masking and weighting.
+    Despite the class name, subclasses can implement simple L1 or L2 losses by
+    overriding ``_ssim_loss``.
+    """
+
+    def __init__(self, name: str | None = None, reduction: str = "mean", *args, **kwargs) -> None:
+        """Initialize the similarity loss wrapper.
+        
+        :param name: Optional loss name used for logging.
+        :param reduction: Reduction mode used after computing the voxelwise loss.
+        :param args: Additional positional arguments reserved for subclasses.
+        :param kwargs: Additional keyword arguments reserved for subclasses.
+        """
+
         if name is None:
             name='SSIM'
         super().__init__(name=name)
         self.reduction = reduction
 
     @NotImplementedError
-    def _ssim_loss(self, prediction, target, reduction='mean'):
-        pass
+    def _ssim_loss(self, prediction: torch.Tensor, target: torch.Tensor, reduction: str = "mean") -> torch.Tensor:
+        pass 
 
-    def forward(self, prediction, target, mask=None, weight=None, *args, **kwargs):
+    def forward(self, prediction: torch.Tensor, target: torch.Tensor, mask: torch.Tensor | None = None, weight: torch.Tensor | None = None, *args, **kwargs) -> torch.Tensor:
+        """Compute the similarity loss with optional mask and weight maps.
+
+        :param prediction: Predicted image tensor.
+        :param target: Target image tensor.
+        :param mask: Optional binary mask restricting the loss computation.
+        :param weight: Optional voxelwise weights applied to the loss.
+        :param args: Additional positional arguments reserved for subclasses.
+        :param kwargs: Additional keyword arguments reserved for subclasses.
+
+        :return: Reduced loss tensor according to the configured reduction mode.
+        """
+
         ndims = len(prediction.shape)
         if mask is None and weight is None:
             return self._ssim_loss(prediction, target, reduction=self.reduction)
@@ -602,17 +734,63 @@ class SSIM(_Loss):
         return res
 
 class L1Loss(SSIM):
-    def _ssim_loss(self, prediction, target, reduction='mean'):
+    """L1 similarity loss implemented through the generic SSIM wrapper."""
+    def _ssim_loss(self, prediction: torch.Tensor, target: torch.Tensor, reduction: str = "mean") -> torch.Tensor   :
+        """Compute voxelwise or reduced L1 loss.
+
+        :param prediction: Predicted image tensor.
+        :param target: Target image tensor.
+        :param reduction: Reduction mode passed to PyTorch L1 loss.
+
+        :return: L1 loss tensor.
+        """
+
         return F.l1_loss(prediction, target, reduction=reduction)
 
 
 class L2Loss(SSIM):
-    def _ssim_loss(self, prediction, target, reduction='mean'):
+    """Mean-squared-error similarity loss implemented through the generic SSIM wrapper."""
+
+    def _ssim_loss(self, prediction: torch.Tensor, target: torch.Tensor, reduction: str = "mean") -> torch.Tensor:
+        """Compute voxelwise or reduced L2 loss.
+
+        :param prediction: Predicted image tensor.
+        :param target: Target image tensor.
+        :param reduction: Reduction mode passed to PyTorch MSE loss.
+
+        :return: L2 loss tensor.
+        """
+
         return F.mse_loss(prediction, target, reduction=reduction)
 
 class NCCLoss(_Loss):
+    """Local normalized cross-correlation loss for image registration.
 
-    def __init__(self, device, kernel_var=None, name=None, kernel_type='mean', eps=1e-5, *args, **kwargs):
+    The loss computes local statistics with a configurable kernel and returns a
+    negative similarity value so that optimization can minimize it.
+    """
+
+    def __init__(self,
+                device: str,
+                kernel_var=None,
+                name: str | None = None,
+                kernel_type: str = "mean",
+                eps: float = 1e-5,
+                *args,
+                **kwargs,) -> None:
+        """Initialize the NCC loss.
+
+        :param device: PyTorch device used to store convolution kernels.
+        :param kernel_var: Kernel size or variance configuration. If None, defaults are selected
+            from the kernel type.
+        :param name: Optional loss name used for logging.
+        :param kernel_type: Kernel family used to compute local sums: ``'mean'``, ``'gaussian'``
+            or ``'linear'``.
+        :param eps: Small constant used for numerical stability.
+        :param args: Additional positional arguments reserved for compatibility.
+        :param kwargs: Additional keyword arguments reserved for compatibility.
+        """
+
         if name is None:
             name = 'ncc'
         super().__init__(name=name)
@@ -623,7 +801,14 @@ class NCCLoss(_Loss):
 
         assert kernel_type in ['mean', 'gaussian', 'linear']
 
-    def _get_kernel(self, kernel_type, kernel_sigma):
+    def _get_kernel(self, kernel_type: str, kernel_sigma: list) -> torch.Tensor:
+        """Build the convolution kernel used to compute local NCC statistics.
+
+        :param kernel_type: Kernel family used for local averaging.
+        :param kernel_sigma: Kernel size or sigma configuration.
+
+        :return: PyTorch tensor containing the convolution kernel.
+        """
 
         if kernel_type == 'mean':
             kernel = torch.ones([1, 1, *kernel_sigma]).to(self.device)
@@ -661,7 +846,22 @@ class NCCLoss(_Loss):
 
         return kernel
 
-    def _compute_local_sums(self, I, J, filt, stride, padding):
+    def _compute_local_sums(self,
+                            I: torch.Tensor,
+                            J: torch.Tensor,
+                            filt: torch.Tensor,
+                            stride,
+                            padding,) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Compute local sums and second-order terms required by NCC.
+
+        :param I: First image tensor.
+        :param J: Second image tensor.
+        :param filt: Convolution kernel used for local sums.
+        :param stride: Convolution stride.
+        :param padding: Convolution padding.
+        
+        :return: Tuple containing local variance of both images and the local cross term.
+        """
 
         ndims = len(list(I.size())) - 2
 
@@ -686,10 +886,13 @@ class NCCLoss(_Loss):
         J_var = J2_sum - 2 * u_J * J_sum + u_J * u_J * win_size
         return I_var, J_var, cross
 
-    def ncc(self, prediction, target):
-        """
-        calculate the normalize cross correlation between I and J
-        assumes I, J are sized [batch_size, nb_feats, *vol_shape]
+    def ncc(self, prediction: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+        """Compute the local normalized cross-correlation map between two tensors.
+
+        :param prediction: First image tensor with shape ``[batch, channels, *spatial]``.
+        :param target: Second image tensor with shape ``[batch, channels, *spatial]``.
+
+        :return: Tensor containing local squared correlation coefficients.
         """
 
         ndims = len(list(prediction.size())) - 2
@@ -726,7 +929,22 @@ class NCCLoss(_Loss):
         cc = cross * cross / (I_var * J_var + self.eps)
         return cc
 
-    def forward(self, prediction, target, mask=None, *args, **kwargs):
+    def forward(self,
+                prediction: torch.Tensor,
+                target: torch.Tensor,
+                mask: torch.Tensor | None = None,
+                *args,
+                **kwargs,) -> torch.Tensor:
+        """Compute the negative NCC loss, optionally inside a mask.
+
+        :param prediction: Predicted or floating image tensor.
+        :param target: Target or reference image tensor.
+        :param mask: Optional mask used to restrict the NCC average.
+        :param args: Additional positional arguments ignored for compatibility.
+        :param kwargs: Additional keyword arguments ignored for compatibility.
+
+        :return: Scalar negative NCC loss tensor.
+        """
 
         # if mask is not None:
         #     prediction = prediction * mask
@@ -742,29 +960,39 @@ class NCCLoss(_Loss):
             return -1.0 * torch.sqrt(norm_factor * torch.sum(cc * mask))
 
 class DiceLoss(_Loss):
-    def __init__(self, name=None, *args, **kwargs):
+    """Soft Dice loss for comparing probabilistic or binary masks."""
+
+    def __init__(self, name: str | None = None, *args, **kwargs) -> None:
+        """Initialize the Dice loss.
+
+        :param name: Optional loss name used for logging.
+        :param args: Additional positional arguments reserved for compatibility.
+        :param kwargs: Additional keyword arguments reserved for compatibility.
+        """
 
         if name is None:
             name='dice'
         super().__init__(name=name)
 
-    def forward(self, prediction, target, classes_compute=None, eps = 0.0000001, *args, **kwargs):
-        """Dice loss.
-        Compute the dice similarity loss (approximation of the DSC). The foreground
+    def forward(self,
+                prediction: torch.Tensor,
+                target: torch.Tensor,
+                classes_compute=None,
+                eps: float = 0.0000001,
+                *args,
+                **kwargs,) -> torch.Tensor:
+        """Compute the soft Dice loss between prediction and target masks.
 
-        Parameters
-        ----------
-        prediction : torch variable of size (batch_size, num_classes, d1, d2, ..., dN) representing the post-softmax
-            values
-
-        target : torch variable of ssize (batch_size, num_classes, d1, d2, ..., dN) representing a 1-hot encoding of the
-            target values
-
-        Returns
-        -------
-        dice_total :
-
+        :param prediction: Predicted mask tensor with batch and optional class dimensions.
+        :param target: Target mask tensor with the same shape as prediction.
+        :param classes_compute: Optional class indices used to restrict the computation.
+        :param eps: Small constant used for numerical stability.
+        :param args: Additional positional arguments ignored for compatibility.
+        :param kwargs: Additional keyword arguments ignored for compatibility.
+        
+        :return: Scalar Dice loss tensor.
         """
+
         # smooth = eps #1.
         # pflat = prediction.view(-1)
         # tflat = target.view(-1)
@@ -786,29 +1014,38 @@ class DiceLoss(_Loss):
         return torch.mean(1 - last_tensor)
 
 class DiceOverTrueLoss(_Loss):
-    def __init__(self, name=None, *args, **kwargs):
+    """Coverage-style Dice loss normalized by the true mask only."""
+    def __init__(self, name: str | None = None, *args, **kwargs) -> None:
+        """Initialize the Dice-over-true loss.
+
+        :param name: Optional loss name used for logging.
+        :param args: Additional positional arguments reserved for compatibility.
+        :param kwargs: Additional keyword arguments reserved for compatibility.
+        """
 
         if name is None:
             name='dice'
         super().__init__(name=name)
 
-    def forward(self, prediction, target, classes_compute=None, eps = 0.0000001, *args, **kwargs):
-        """Dice loss.
-        Compute the dice similarity loss (approximation of the DSC). The foreground
+    def forward(self,
+                prediction: torch.Tensor,
+                target: torch.Tensor,
+                classes_compute=None,
+                eps: float = 0.0000001,
+                *args,
+                **kwargs,) -> torch.Tensor:
+        """Compute a Dice-like loss normalized by target-mask volume.
 
-        Parameters
-        ----------
-        prediction : torch variable of size (batch_size, num_classes, d1, d2, ..., dN) representing the post-softmax
-            values
+        :param prediction: Predicted mask tensor.
+        :param target: Target mask tensor.
+        :param classes_compute: Optional class indices used to restrict the computation.
+        :param eps: Small constant used for numerical stability.
+        :param args: Additional positional arguments ignored for compatibility.
+        :param kwargs: Additional keyword arguments ignored for compatibility.
 
-        target : torch variable of ssize (batch_size, num_classes, d1, d2, ..., dN) representing a 1-hot encoding of the
-            target values
-
-        Returns
-        -------
-        dice_total :
-
+        :return: Scalar Dice-over-true loss tensor.
         """
+
         # smooth = eps #1.
         # pflat = prediction.view(-1)
         # tflat = target.view(-1)
@@ -830,7 +1067,30 @@ class DiceOverTrueLoss(_Loss):
         return torch.mean(1 - last_tensor)
 
 class Symmetry(_Loss):
-    def __init__(self, v2r, name=None, axis='r', loss='l2', device='cpu', *args, **kwargs):
+    """Loss that penalizes differences between an image and its flipped version.
+    The flip is defined in RAS space and converted into voxel coordinates before
+    interpolation.
+    """
+
+    def __init__(self,
+                v2r: np.ndarray,
+                name: str | None = None,
+                axis: str = "r",
+                loss: str = "l2",
+                device: str = "cpu",
+                *args,
+                **kwargs,) -> None:
+        """Initialize the symmetry loss.
+
+        :param v2r: Voxel-to-RAS affine matrix defining the image geometry.
+        :param name: Optional loss name used for logging.
+        :param axis: RAS axis used for flipping: ``'r'``, ``'a'`` or ``'s'``.
+        :param loss: Base loss name used to compare the image and its flipped version.
+        :param device: PyTorch device used for tensors.
+        :param args: Additional positional arguments reserved for compatibility.
+        :param kwargs: Additional keyword arguments reserved for compatibility.
+
+        """
         if name is None:
             name = 'symmetry'
         super().__init__(name=name)
@@ -840,7 +1100,12 @@ class Symmetry(_Loss):
         self.loss = DICT_LOSSES[loss](device=device)
         self.device = device
 
-    def _get_flip(self):
+    def _get_flip(self) -> torch.Tensor:
+        """Build the homogeneous flip matrix for the configured anatomical axis.
+
+        :return: 4x4 flip matrix in RAS coordinates.
+        """
+
         T_flip = torch.zeros((4, 4), dtype=torch.float).to(self.device)
         if self.axis == 'r':
             T_flip[0, 0] = -1
@@ -868,13 +1133,29 @@ class Symmetry(_Loss):
 
         return T_flip
 
-    def _get_grid(self, image_shape):
+    def _get_grid(self, image_shape: tuple) -> torch.Tensor:
+        """Create a voxel coordinate grid for an image shape.
+
+        :param image_shape: Spatial image shape used to create the grid.
+
+        :return: Tensor grid with one coordinate channel per spatial axis.
+        """
+
         vectors = [torch.arange(0, s) for s in image_shape]
         grids = torch.meshgrid(vectors, indexing='ij')
         grid = torch.stack(grids) # y, x, z
         return grid.to(self.device)
 
-    def forward(self, image, *args, **kwargs):
+    def forward(self, image: torch.Tensor, *args, **kwargs) -> torch.Tensor:
+        """Compute the symmetry loss between an image and its flipped version.
+
+        :param image: Image tensor with batch and channel dimensions.
+        :param args: Additional positional arguments ignored for compatibility.
+        :param kwargs: Additional keyword arguments ignored for compatibility.
+
+        :return: Scalar loss tensor comparing the original image with its flipped version.
+        """
+
         T_flip = self._get_flip()
         T_flip = torch.linalg.inv(self.v2r) @  T_flip  @ self.v2r
         im = torch.permute(image[0], (1, 2, 3, 0))
@@ -899,12 +1180,32 @@ class Symmetry(_Loss):
         return loss
 
 class MaxUptake(_Loss):
-    def __init__(self, name=None, *args, **kwargs):
+    """Loss encouraging concentrated uptake inside a target region."""
+
+    def __init__(self, name: str | None = None, *args, **kwargs) -> None:
+        """Initialize the maximum-uptake loss.
+        
+        :param name: Optional loss name used for logging.
+        :param args: Additional positional arguments reserved for compatibility.
+        :param kwargs: Additional keyword arguments reserved for compatibility.
+        """
+
         if name is None:
             name = 'max_uptake'
         super().__init__(name=name)
 
-    def forward(self, prediction, target, *args, **kwargs):
+    def forward(self, prediction: torch.Tensor, target: torch.Tensor, *args, **kwargs) -> torch.Tensor:
+        """Measure the difference between near-maximum and mean predicted uptake inside a target
+            mask.
+
+        :param prediction: Predicted uptake image tensor.
+        :param target: Binary mask defining the region where uptake is evaluated.
+        :param args: Additional positional arguments ignored for compatibility.
+        :param kwargs: Additional keyword arguments ignored for compatibility.
+
+        :return: Scalar uptake concentration loss tensor.
+        """
+        
         return torch.quantile(prediction[target > 0], 0.999)-torch.mean(prediction[target > 0])
 
 

@@ -22,7 +22,11 @@ from darq.src.results import save_session_results
 # ── DaT mask utilities ───────────────────────────────────────────────────────
 
 def get_dat_transforms() -> list:
-    """Transforms applied to the simulated DaT image (MRI → DaT simulation)."""
+    """Build the transforms used to simulate DaT uptake from the MRI striatal mask.
+
+    :return: List of transforms applied to the ``simulated_dat`` entry.
+    """
+
     return [
         MorphologicalOperator(
             keys=['simulated_dat'],
@@ -38,7 +42,14 @@ def get_dat_transforms() -> list:
 
 
 def _get_dat_mask(dat_image: np.ndarray, v2r: np.ndarray) -> np.ndarray:
-    """KMeans-based striatum mask, filtered by anatomical position."""
+    """Estimate a striatal DaT uptake mask using KMeans and anatomical filtering.
+
+    :param dat_image: DaT image in template space.
+    :param v2r: Voxel-to-RAS affine matrix used to reject anatomically implausible blobs.
+
+    :return: Binary mask containing the retained high-uptake DaT regions.
+    """
+
     img = copy.deepcopy(dat_image)
     n_clusters = 2
     while True:
@@ -74,7 +85,16 @@ def _get_dat_mask(dat_image: np.ndarray, v2r: np.ndarray) -> np.ndarray:
 
 def _get_dat_mask_prior(dat_image: np.ndarray, prior: np.ndarray,
                          percentage: float = 1.0) -> np.ndarray:
-    """KMeans mask restricted to a prior region."""
+    """Estimate a high-uptake DaT mask inside a prior region.
+
+    :param dat_image: DaT image in template space.
+    :param prior: Binary prior mask restricting where the high-uptake region can be found.
+    :param percentage: Maximum target percentage of image voxels assigned to the mask before
+        increasing the number of clusters.
+
+    :return: Binary high-uptake mask restricted to the prior region.
+    """
+
     img = copy.deepcopy(dat_image) * prior
     n_clusters = 2
     while True:
@@ -99,7 +119,15 @@ def _get_dat_mask_prior(dat_image: np.ndarray, prior: np.ndarray,
 
 def _flip_dat(dat_image: np.ndarray, v2r_symm: np.ndarray,
                agg: str = 'mean') -> np.ndarray:
-    """Flip image through the LR symmetry plane defined by v2r_symm."""
+    """Flip or symmetrize a DaT image through the left-right symmetry plane.
+
+    :param dat_image: Input DaT image.
+    :param v2r_symm: Affine matrix defining the symmetry space used for the flip.
+    :param agg: Aggregation mode: ``'mean'``, ``'max'``, ``'sum'`` or ``'flip'``.
+
+    :return: Flipped or aggregated DaT image.
+    """
+
     T_flip = np.diag([-1., 1., 1., 1.])
     T = torch.from_numpy(np.linalg.inv(v2r_symm) @ T_flip @ v2r_symm).float()
     grid = torch.meshgrid([torch.arange(s) for s in dat_image.shape], indexing='ij')
@@ -117,18 +145,44 @@ def _flip_dat(dat_image: np.ndarray, v2r_symm: np.ndarray,
     return tf.numpy()  # 'flip'
 
 
-def _label_blobs(mask):
+def _label_blobs(mask: np.ndarray) -> tuple[np.ndarray, int]:
+    """Label connected components in a binary mask.
+
+    :param mask: Binary mask whose connected components will be labeled.
+
+    :return: Tuple containing the labeled image and the number of detected components.
+    """
+
     return measure.label(mask, connectivity=2, return_num=True)
 
 
-def _blob_centre(blobs, nb, v2r):
+def _blob_centre(blobs: np.ndarray, nb: int, v2r: np.ndarray) -> np.ndarray:
+    """Compute the RAS-space center of one connected component.
+
+    :param blobs: Connected-component label image.
+    :param nb: Component label whose center will be computed.
+    :param v2r: Voxel-to-RAS affine matrix used to convert voxel coordinates to RAS
+        coordinates.
+
+    :return: Four-element homogeneous RAS coordinate of the component center.
+    """
+
     x, y, z = np.where(blobs == nb)
     return v2r @ np.array([np.median(x), np.median(y), np.median(z), 1])
 
 
 # ── Optimiser factory ─────────────────────────────────────────────────────────
 
-def _build_optimizer(model, opt_str: str):
+def _build_optimizer(model, opt_str: str) -> torch.optim.Optimizer:
+    """Create the optimizer used for rigid registration.
+
+    :param model: Registration model whose trainable parameters will be optimized.
+    :param opt_str: Optimizer name selected by the user: ``'lbfgs'``, ``'adam'`` or
+        ``'sgd'``.
+
+    :return: Configured PyTorch optimizer.
+    """
+
     if opt_str == 'adam':
         lr = 1e-3
         print(f'    Optimizer: ADAM  lr={lr}')
@@ -147,6 +201,24 @@ def _build_optimizer(model, opt_str: str):
 
 def process_subject(data_dict: dict, preproc_tf: dict, dat_tf: list,
                     main_dict: dict, args) -> dict | None:
+    """Run the full DaTSCAN-to-MRI registration pipeline for one subject/session.
+
+    The function aligns the input images, builds DaT-derived masks, simulates a DaTlike
+    MRI mask, estimates a rigid registration and writes the session results.
+
+    :param data_dict: Subject/session dictionary returned by the dataset.
+    :param preproc_tf: Ordered preprocessing transforms applied before registration.
+    :param dat_tf: Transforms used to create the simulated DaT image from the MRI striatal
+        mask.
+    :param main_dict: Runtime configuration including device, output directory and
+        registration hyperparameters.
+    :param args: Command-line arguments controlling optimizer choice, recomputation and
+        hardware options.
+
+    :return: Status dictionary when the session is processed or skipped, or None if the
+        input is invalid.
+    """
+
     if data_dict is None:
         return None
 
@@ -274,6 +346,14 @@ def process_subject(data_dict: dict, preproc_tf: dict, dat_tf: list,
 
 
 def _build_loss_dict(device: str, v2r: np.ndarray) -> dict:
+    """Build the loss configuration used during MRI-DaT registration.
+
+    :param device: PyTorch device where tensor losses are computed.
+    :param v2r: Template-space voxel-to-RAS affine used by the symmetry loss.
+
+    :return: Dictionary mapping loss names to loss objects and scalar weights.
+    """
+
     return {
         'reg':         {'loss': fn_utils.DiceLoss(name='reg'),             'weight': 1},
         'reg_label':   {'loss': fn_utils.DiceOverTrueLoss(name='reg_label'), 'weight': 2},
@@ -285,7 +365,16 @@ def _build_loss_dict(device: str, v2r: np.ndarray) -> dict:
 
 # ── Parallel wrapper ──────────────────────────────────────────────────────────
 
-def process_fn_parallel(fn, *args, **kwargs):
+def process_fn_parallel(fn, *args, **kwargs) -> dict | None:
+    """Safely execute a processing function inside a parallel worker.
+    
+    :param fn: Function to call in the worker process.
+    :param args: Positional arguments forwarded to the processing function.
+    :param kwargs: Keyword arguments forwarded to the processing function.
+
+    :return: Function result, or None if the function raises an exception.
+    """
+
     try:
         return fn(*args, **kwargs)
     except Exception:

@@ -2,6 +2,12 @@ import argparse
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse command-line arguments for the DARQ processing pipeline.
+
+    :return: argparse namespace containing input paths, output path, optimizer
+        settings, execution flags and hardware options.
+    """
+    
     parser = argparse.ArgumentParser(
         description="Automatic quantification pipeline of DaTSCAN images. If a companion MRI scan is availabe, it"
                     "registers both modalities together for subject-specific biomarkers; otherwise, it defaults to"

@@ -12,8 +12,29 @@ from darq.utils.io import PrinterCallback
 
 
 class InstanceModelClassic(nn.Module):
+    """Base class for voxel-grid registration models.
 
-    def __init__(self, image_shape, ref_v2r, flo_v2r=None, batchsize=1, device='cpu', **kwargs):
+    The class stores image geometry, affine matrices and a voxel grid. Subclasses
+    define the actual transformation parameters and RAS-space matrix computation.
+    """
+    def __init__(self,
+                image_shape,
+                ref_v2r: np.ndarray,
+                flo_v2r: np.ndarray | None = None,
+                batchsize: int = 1,
+                device: str = "cpu",
+                **kwargs,) -> None:
+        """Initialize the base registration model geometry.
+
+        :param image_shape: Spatial image shape used to build the interpolation grid.
+        :param ref_v2r: Reference voxel-to-RAS affine matrix.
+        :param flo_v2r: Optional floating-image voxel-to-RAS affine matrix. If omitted, the
+        reference affine is reused.
+        :param batchsize: Number of transformations optimized in parallel.
+        :param device: PyTorch device used for tensors and parameters.
+        :param kwargs: Reserved keyword arguments for subclasses.
+        """
+
         super().__init__()
 
         self.device = device
@@ -30,19 +51,31 @@ class InstanceModelClassic(nn.Module):
         grids = torch.meshgrid(vectors, indexing='ij')
         self.grid = torch.stack(grids).to(device)  # y, x, z
 
-    def _compute_ras_matrix(self, *args, **kwargs):
+    def _compute_ras_matrix(self, *args, **kwargs) -> torch.Tensor:
         raise NotImplementedError
 
-    def set_params(self, *args, **kwargs):
+    def set_params(self, *args, **kwargs) -> None:
         raise NotImplementedError
 
     def get_params(self):
         raise NotImplementedError
 
     def get_params_scaled(self):
+        """Return transformation parameters after optional scaling.
+
+        :return: Scaled parameters. The base implementation returns the raw parameters.
+        """
+
         return self.get_params()
 
-    def _compute_rotation(self, rotation):
+    def _compute_rotation(self, rotation: torch.Tensor) -> torch.Tensor:
+        """Build 3D rotation matrices from Euler-angle parameters.
+
+        :param rotation: Tensor containing rotations around the x, y and z axes.
+
+        :return: Batch of 3x3 rotation matrices.
+        """
+
         shape = rotation[..., 0].shape + (1,)
 
         Rx_row0 = torch.unsqueeze(torch.tile(torch.unsqueeze(torch.from_numpy(np.array([1., 0., 0.])), 0), shape),
@@ -75,7 +108,15 @@ class InstanceModelClassic(nn.Module):
 
         return T_rot
 
-    def _compute_matrix(self, *args, **kwargs):
+    def _compute_matrix(self, *args, **kwargs) -> torch.Tensor:
+        """Convert the subclass RAS transform to voxel-space sampling coordinates.
+
+        :param args: Optional positional arguments forwarded to the RAS matrix builder.
+        :param kwargs: Optional keyword arguments forwarded to the RAS matrix builder.
+
+        :return: Batch of voxel-space affine matrices used during interpolation.
+        """
+
         T_rig = self._compute_ras_matrix(**kwargs)
         T_rig_list = torch.unbind(T_rig, dim=0)
         T_rig_ras_list = [torch.linalg.inv(self.flo_v2r) @ T @ self.ref_v2r for T in T_rig_list]
@@ -83,13 +124,30 @@ class InstanceModelClassic(nn.Module):
 
         return T.to(self.device)
 
-    def get_ras_matrix(self):
+    def get_ras_matrix(self) -> torch.Tensor:
+        """Return the current transformation in RAS coordinates.
+
+        :return: Batch of RAS-space affine matrices.
+        """
+
         return self._compute_ras_matrix()
 
-    def get_matrix(self):
+    def get_matrix(self) -> torch.Tensor:
+        """Return the current transformation in voxel coordinates.
+
+        :return: Batch of voxel-space affine matrices.
+        """
+
         return self._compute_matrix()
 
-    def forward(self, image_targ, **kwargs):
+    def forward(self, image_targ: torch.Tensor, **kwargs) -> torch.Tensor:
+        """Resample an input image using the current transformation.
+
+        :param image_targ: Image tensor to be transformed, with batch and channel dimensions.
+
+        :return: Transformed image tensor.
+        """
+
         T = self._compute_matrix()
         im = torch.permute(image_targ[0], (1, 2, 3, 0))
 
@@ -103,9 +161,35 @@ class InstanceModelClassic(nn.Module):
         return torch.unsqueeze(torch.permute(image_reg, (3, 0, 1, 2)), 0)
 
 class InstanceAlignModelClassic(InstanceModelClassic):
+    """Rigid alignment model that also computes a left-right flipped transform.
 
-    def __init__(self, image_shape, v2r, batchsize=1, device='cpu', cog=None,
-                 tx_init=None, angle_init=None, tx_factor=1, angle_factor=1):
+    This model is used to estimate a symmetry-based alignment and to generate both
+    registered and flipped-registered images.
+    """
+
+    def __init__(self,
+                image_shape,
+                v2r: np.ndarray,
+                batchsize: int = 1,
+                device: str = "cpu",
+                cog: np.ndarray | None = None,
+                tx_init: torch.Tensor | np.ndarray | None = None,
+                angle_init: torch.Tensor | np.ndarray | None = None,
+                tx_factor=1,
+                angle_factor=1,) -> None:
+        """Initialize the symmetry alignment model.
+
+        :param image_shape: Spatial image shape used to build the interpolation grid.
+        :param v2r: Voxel-to-RAS affine matrix of the image to align.
+        :param batchsize: Number of transformations optimized in parallel.
+        :param device: PyTorch device used for tensors and parameters.
+        :param cog: Optional center of gravity used as rotation center.
+        :param tx_init: Optional initial translation parameters.
+        :param angle_init: Optional initial rotation parameters.
+        :param tx_factor: Scaling factor applied to translations when logging or regularizing.
+        :param angle_factor: Scaling factor applied to rotations when logging or regularizing.
+        """
+
         super().__init__(image_shape, ref_v2r=v2r, batchsize=batchsize, device=device)
 
         self.tx_factor = tx_factor
@@ -133,17 +217,39 @@ class InstanceAlignModelClassic(InstanceModelClassic):
         self.angle.requires_grad = True
         self.translation.requires_grad = True
 
-    def set_params(self, params):
+    def set_params(self, params: tuple[torch.Tensor, torch.Tensor]) -> None:
+        """Replace the current rotation and translation parameters.
+
+        :param params: Tuple containing angle and translation tensors.
+        """
+
         self.angle = torch.nn.Parameter(params[0]).to(self.device)
         self.translation = torch.nn.Parameter(params[1]).to(self.device)
 
-    def get_params(self):
+    def get_params(self) -> tuple[torch.Tensor, torch.Tensor]:
+        """Return the current rotation and translation parameters.
+
+        :return: Tuple ``(angle, translation)`` containing trainable tensors.
+        """
+
         return self.angle, self.translation
 
-    def get_params_scaled(self):
+    def get_params_scaled(self) -> tuple[torch.Tensor, torch.Tensor]:
+        """Return rotation and translation parameters after applying scaling factors.
+
+        :return: Tuple ``(scaled_angle, scaled_translation)``.
+        """
+
         return self.angle * self.angle_factor, self.translation * self.tx_factor
 
-    def _compute_matrix(self, flip_lr=False):
+    def _compute_matrix(self, flip_lr: bool = False) -> torch.Tensor:
+        """Build the voxel-space transform, optionally including a left-right flip.
+
+        :param flip_lr: If True, include a left-right flip in the rigid transform.
+
+        :return: Batch of voxel-space affine matrices.
+        """
+
         T_rig = self._compute_ras_matrix(flip_lr=flip_lr)
         T_rig_list = torch.unbind(T_rig, dim=0)
         T_rig_ras_list = [torch.linalg.inv(self.flo_v2r) @ T @ self.ref_v2r for T in T_rig_list]
@@ -151,7 +257,13 @@ class InstanceAlignModelClassic(InstanceModelClassic):
 
         return T.to(self.device)
 
-    def _compute_ras_matrix(self, flip_lr=False):
+    def _compute_ras_matrix(self, flip_lr: bool = False) -> torch.Tensor:
+        """Build the RAS-space rigid transform used for symmetry alignment.
+
+        :param flip_lr: If True, insert a left-right flip around the center of gravity.
+
+        :return: Batch of 4x4 RAS-space affine matrices.
+        """
 
         angle, tx = self.get_params()
 
@@ -195,7 +307,14 @@ class InstanceAlignModelClassic(InstanceModelClassic):
 
         return T_rig
 
-    def forward(self, image_targ, **kwargs):
+    def forward(self, image_targ: torch.Tensor, **kwargs) -> tuple[torch.Tensor, torch.Tensor]:
+        """Resample an image using both the direct and left-right flipped transforms.
+
+        :param image_targ: Image tensor to transform.
+
+        :return: Tuple containing the registered image and the flipped-registered image.
+        """
+
         T = self._compute_matrix(flip_lr=False)
         T_flip = self._compute_matrix(flip_lr=True)
         im = torch.permute(image_targ[0], (1, 2, 3, 0))
@@ -217,9 +336,37 @@ class InstanceAlignModelClassic(InstanceModelClassic):
         return torch.unsqueeze(torch.permute(image_reg, (3, 0, 1, 2)), 0), torch.unsqueeze(torch.permute(image_flip_reg, (3, 0, 1, 2)), 0)
 
 class InstanceRigidModelClassic(InstanceModelClassic):
+    """Rigid 3D registration model parameterized by rotations and translations.
 
-    def __init__(self, image_shape, ref_v2r, flo_v2r=None, batchsize=1, device='cpu', cog=None,
-                 tx_init=None, angle_init=None, tx_factor=1, angle_factor=1):
+    The model estimates an affine transform between a floating image and a reference
+    image while preserving rigid geometry.
+    """
+
+    def __init__(self,
+                image_shape,
+                ref_v2r: np.ndarray,
+                flo_v2r: np.ndarray | None = None,
+                batchsize: int = 1,
+                device: str = "cpu",
+                cog: np.ndarray | None = None,
+                tx_init: torch.Tensor | np.ndarray | None = None,
+                angle_init: torch.Tensor | np.ndarray | None = None,
+                tx_factor=1,
+                angle_factor=1,) -> None:
+        """Initialize the rigid registration model.
+
+        :param image_shape: Spatial image shape used to build the interpolation grid.
+        :param ref_v2r: Reference voxel-to-RAS affine matrix.
+        :param flo_v2r: Floating-image voxel-to-RAS affine matrix.
+        :param batchsize: Number of transformations optimized in parallel.
+        :param device: PyTorch device used for tensors and parameters.
+        :param cog: Optional center of gravity used as rotation center.
+        :param tx_init: Optional initial translation parameters.
+        :param angle_init: Optional initial rotation parameters.
+        :param tx_factor: Scaling factor applied to translations when regularizing.
+        :param angle_factor: Scaling factor applied to rotations when regularizing.
+        """
+
         super().__init__(image_shape, ref_v2r=ref_v2r, flo_v2r=flo_v2r, batchsize=batchsize, device=device)
 
         self.tx_factor = torch.from_numpy(tx_factor).to(device)
@@ -247,17 +394,36 @@ class InstanceRigidModelClassic(InstanceModelClassic):
         self.angle.requires_grad = True
         self.translation.requires_grad = True
 
-    def set_params(self, params):
+    def set_params(self, params: tuple[torch.Tensor, torch.Tensor]) -> None:
+        """Replace the current rotation and translation parameters.
+
+        :param params: Tuple containing angle and translation tensors.
+        """
+
         self.angle = torch.nn.Parameter(params[0])
         self.translation = torch.nn.Parameter(params[1])
 
-    def get_params(self):
+    def get_params(self) -> tuple[torch.Tensor, torch.Tensor]:
+        """Return the current rotation and translation parameters.
+
+        :return: Tuple ``(angle, translation)`` containing trainable tensors.
+        """
+
         return self.angle, self.translation
 
-    def get_params_scaled(self):
+    def get_params_scaled(self) -> tuple[torch.Tensor, torch.Tensor]:
+        """Return rotation and translation parameters after applying scaling factors.
+
+        :return: Tuple ``(scaled_angle, scaled_translation)``.
+        """
+
         return self.angle * self.angle_factor, self.translation * self.tx_factor
 
-    def _compute_ras_matrix(self):
+    def _compute_ras_matrix(self) -> torch.Tensor:
+        """Build the current rigid transform in RAS coordinates.
+
+        :return: Batch of 4x4 RAS-space affine matrices.
+        """
 
         angle, tx = self.get_params()
 
@@ -297,8 +463,29 @@ class InstanceRigidModelClassic(InstanceModelClassic):
 # ── Optimising functions ─────────────────────────────────────────────────────────
 
 class JointInstanceAlign(object):
+    """Optimization loop for symmetry-based instance alignment.
 
-    def __init__(self, loss_dict, p_dict, device='cpu', trainable_keys=None, verbose=True, **kwargs):
+    The class coordinates model forwarding, loss computation, optimizer steps and
+    optional progress callbacks for one subject/session.
+    """
+
+    def __init__(self,
+                loss_dict: dict,
+                p_dict: dict,
+                device: str = "cpu",
+                trainable_keys=None,
+                verbose: bool = True,
+                **kwargs,) -> None:
+        """Initialize the alignment optimization session.
+
+        :param loss_dict: Dictionary containing loss objects and weights.
+        :param p_dict: Training configuration such as epochs, patience and print frequency.
+        :param device: PyTorch device used during optimization.
+        :param trainable_keys: Model keys that should be optimized.
+        :param verbose: If True, attach a printer callback for progress reporting.
+        :param kwargs: Additional options forwarded to callbacks or stored for later use.
+        """
+
         self.loss_dict = loss_dict
         self.log_keys = ['loss_' + loss['loss'].name for loss in loss_dict.values()] + \
                         ['w_loss_' + loss['loss'].name for loss in loss_dict.values()] + \
@@ -319,7 +506,17 @@ class JointInstanceAlign(object):
         self.device = device
         self.kwargs = kwargs
 
-    def train(self, data_dict, model_dict, optimizer_dict, **kwargs):
+    def train(self, data_dict: dict, model_dict: dict, optimizer_dict: dict, **kwargs) -> dict:
+        """Run the optimization loop for the configured number of epochs.
+
+        :param data_dict: Dictionary containing tensors used by the model and losses.
+        :param model_dict: Dictionary of models participating in optimization.
+        :param optimizer_dict: Dictionary of optimizers associated with trainable models.
+        :param kwargs: Additional arguments forwarded to the iteration step.
+
+        :return: Dictionary containing the final loss values and logging metrics.
+        """
+
         for cb in self.callbacks:
             cb.on_train_init(model_dict, starting_epoch=self.main_dict['starting_epoch'])
 
@@ -359,7 +556,18 @@ class JointInstanceAlign(object):
 
         return logs_dict
 
-    def register(self, data_dict, model_dict, optimizer_dict, **kwargs):
+    def register(self, data_dict: dict, model_dict: dict, optimizer_dict: dict, **kwargs) -> dict:
+        """Optimize the alignment model and return the registered data.
+
+        :param data_dict: Dictionary containing input tensors.
+        :param model_dict: Dictionary containing the registration model under the ``'reg'`` key.
+        :param optimizer_dict: Dictionary containing the optimizer under the ``'reg'`` key.
+        :param kwargs: Additional optimization arguments.
+
+        :return: Updated data dictionary containing parameters, affine matrices, loss and
+        registered outputs.
+        """
+
         logs_dict = self.train(data_dict, model_dict, optimizer_dict, **kwargs)
         model_dict['reg'].eval()
         data_dict['parameters'] = model_dict['reg'].get_params()
@@ -371,7 +579,15 @@ class JointInstanceAlign(object):
 
         return data_dict
 
-    def forward(self, data_dict, model_dict):
+    def forward(self, data_dict: dict, model_dict: dict) -> dict:
+        """Apply the alignment model to the current data dictionary.
+
+        :param data_dict: Dictionary containing the image and/or mask tensors to transform.
+        :param model_dict: Dictionary containing the registration model under the ``'reg'`` key.
+
+        :return: Updated data dictionary with registered and flipped-registered tensors.
+        """
+
         if 'image' in data_dict.keys():
             im, im_flip = model_dict['reg'](torch.cat((data_dict['image'], data_dict['mask']), axis=1))
             data_dict['reg_image'], data_dict['reg_image_flip'] = im[:, 0:1], im_flip[:, 0:1]
@@ -384,7 +600,17 @@ class JointInstanceAlign(object):
 
         return data_dict
 
-    def iterate(self, data_dict, model_dict, optimizer_dict, **kwargs):
+    def iterate(self, data_dict: dict, model_dict: dict, optimizer_dict: dict, **kwargs) -> dict:
+        """Run one optimization iteration for the alignment model.
+
+        :param data_dict: Dictionary containing tensors used by the model and losses.
+        :param model_dict: Dictionary of models participating in optimization.
+        :param optimizer_dict: Dictionary of optimizers associated with trainable models.
+        :param kwargs: Additional arguments forwarded to the loss computation.
+
+        :return: Dictionary of scalar logging values for the current iteration.
+        """
+
         if type(optimizer_dict['reg']) == torch.optim.LBFGS:
             def closure():
                 optimizer_dict['reg'].zero_grad()
@@ -412,7 +638,15 @@ class JointInstanceAlign(object):
 
         return log_dict
 
-    def compute_loss(self, data_dict, model_dict):
+    def compute_loss(self, data_dict: dict, model_dict: dict) -> tuple[torch.Tensor, dict]:
+        """Compute the weighted symmetry and regularization losses.
+
+        :param data_dict: Dictionary containing registered tensors and masks.
+        :param model_dict: Dictionary containing the registration model and its parameters.
+
+        :return: Tuple containing the total loss tensor and a logging dictionary.
+        """
+
         log_dict = {}
 
         # Registration
@@ -444,8 +678,22 @@ class JointInstanceAlign(object):
         return R_loss, log_dict
 
 class JointInstanceReg(JointInstanceAlign):
+    """Optimization loop for rigid image registration.
+    This class specializes ``JointInstanceAlign`` for registering a floating image or
+    mask to a reference image or mask.
+    """
 
-    def forward(self, data_dict, model_dict):
+    def forward(self, data_dict: dict, model_dict: dict) -> dict:
+        """Apply the rigid registration model to floating image and mask tensors.
+
+        :param data_dict: Dictionary containing floating image/mask tensors and reference
+            tensors.
+        :param model_dict: Dictionary containing the registration model under the ``'reg'`` key.
+
+        :return: Updated data dictionary with registered image and optional registered
+            mask.
+        """
+
         if 'flo_mask' in data_dict.keys():
             im = model_dict['reg'](torch.cat((data_dict['flo_image'], data_dict['flo_mask']), axis=1))
             data_dict['reg_image'] = im[:, 0:1]
@@ -455,7 +703,17 @@ class JointInstanceReg(JointInstanceAlign):
 
         return data_dict
 
-    def iterate(self, data_dict, model_dict, optimizer_dict, **kwargs):
+    def iterate(self, data_dict: dict, model_dict: dict, optimizer_dict: dict, **kwargs) -> dict:
+        """Run one optimizer step for the rigid registration model.
+       
+        :param data_dict: Dictionary containing tensors used by the model and losses.
+        :param model_dict: Dictionary of models participating in optimization.
+        :param optimizer_dict: Dictionary of optimizers associated with trainable models.
+        :param kwargs: Additional arguments forwarded to the loss computation.
+
+        :return: Dictionary of scalar logging values for the current iteration.
+        """
+
         def closure():
             if torch.is_grad_enabled():
                 for k in self.trainable_keys.values():
@@ -479,7 +737,15 @@ class JointInstanceReg(JointInstanceAlign):
 
         return log_dict
 
-    def compute_loss(self, data_dict, model_dict):
+    def compute_loss(self, data_dict: dict, model_dict: dict) -> tuple[torch.Tensor, dict]:
+        """Compute the weighted registration, label, symmetry and regularization losses.
+        
+        :param data_dict: Dictionary containing reference, floating and registered tensors.
+        :param model_dict: Dictionary containing the registration model and its parameters.
+
+        :return: Tuple containing the total loss tensor and a logging dictionary.
+        """
+
         log_dict = {}
 
         ref_mask = None

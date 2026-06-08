@@ -9,7 +9,16 @@ from darq.processing import process_subject, process_fn_parallel, get_dat_transf
 from darq.src.datasets import MRI_DaT
 
 
-def main():
+def main() -> None:
+    """Run the command-line entry point for the DaTSCAN-to-MRI pipeline.
+
+    The function parses user arguments, builds the subject/session dataframe, creates
+    the dataset and transforms, and launches either sequential or parallel subject
+    processing.
+    
+    :return: None. Results are written to the output directory selected by the user.
+    """
+    
     os.system('clear')
     print('\n\n# ------------------------- #')
     print('# Running Dat2MRI algorithm #')

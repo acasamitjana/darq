@@ -8,7 +8,15 @@ import pandas as pd
 from tqdm import tqdm
 
 def build_subject(args: argparse.Namespace) -> pd.DataFrame:
-    """Scan BIDS directory and return a DataFrame of all sessions to process."""
+    """Build a single-subject dataframe from explicit command-line paths.
+
+    :param args: Command-line arguments containing DaT, MRI and segmentation paths.
+
+    :raises NotImplementedError: Template-based registration is not implemented when MRI or
+        segmentation
+        
+    :return: DataFrame containing one row with paths required by the dataset.
+    """
 
     if args.mri is None or args.seg is None:
         raise NotImplementedError("Template-based registration still not implementes")

@@ -10,20 +10,48 @@ from darq.config import REGISTRATION_DEFAULTS
 
 
 class Transform(object):
-    def __init__(self, keys):
+    """Base class for dictionary-based preprocessing transforms.
+
+    Derived classes implement ``__call__`` and modify one or more entries of the
+    subject dictionary.
+    """
+    def __init__(self, keys: list | dict) -> None:
+        """Store the dictionary keys that will be processed by the transform.
+
+        :param keys: Key or list of keys identifying the entries modified by the transform.
+        """
+
         self.keys = keys
 
-    def __call__(self, data_dict, *args, **kwargs):
+    def __call__(self, data_dict: dict, *args, **kwargs) -> dict:
         raise NotImplementedError
 
 
 class MorphologicalOperator(Transform):
-    def __init__(self, keys, operator, struct_fn):
+    """Apply a morphological operation to selected dictionary entries.
+
+    The current implementation supports binary opening and preserves the input data
+    type whenever possible.
+    """
+    def __init__(self, keys: list, operator: str, struct_fn) -> None:
+        """Initialize the morphological operator transform.
+
+        :param keys: Key or list of keys identifying the entries modified by the transform.
+        :param operator: Morphological operator to apply ('opening' or 'closing').
+        :param struct_fn: Function to generate the structuring element.
+        """
+
         self.keys = keys
         self.operator = operator
         self.struct_fn = struct_fn
 
-    def __call__(self, data_dict, *args, **kwargs):
+    def __call__(self, data_dict: dict, *args, **kwargs) -> dict:
+        """Apply the selected morphological operation to each configured key.
+
+        :param data_dict: Subject dictionary containing the selected image or mask entries.
+        :return: Updated subject dictionary with processed entries.
+        """
+
         for k in self.keys:
             type_dict = fn_utils.get_type_dict(data_dict[k])
             image = fn_utils.convert_to_numpy(data_dict[k])
@@ -42,13 +70,38 @@ class MorphologicalOperator(Transform):
         return data_dict
 
 class GaussianBlur(Transform):
-    def __init__(self, keys, sigma, mask_key=None, **kwargs):
+    """Apply a 3D Gaussian blur to selected dictionary entries.
+
+    The transform builds a depthwise 3D convolution kernel in PyTorch and can
+    optionally update only voxels inside a mask.
+    """
+
+    def __init__(self, keys: list, sigma, mask_key: str | None = None, **kwargs) -> None:
+        """Initialize the Gaussian smoothing transform.
+
+        :param keys: Dictionary keys whose images will be blurred.
+        :param sigma: Gaussian standard deviation or callable returning a 3-element sigma
+            vector.
+        :param mask_key: Optional dictionary key containing a mask that restricts where the
+            blurred image is copied back.
+        :param kwargs: Optional settings such as ``normalize_area``.
+        """
+
         self.keys = keys
         self.mask_key = mask_key
         self.sigma = sigma
         self.normalize_area = kwargs['normalize_area'] if 'normalize_area' in kwargs.keys() else False
 
-    def _gaussian_filter_3d(self, sigma, channels=1, truncate=4):
+    def _gaussian_filter_3d(self,sigma: np.ndarray, channels: int = 1, truncate: int = 4,) -> torch.nn.Conv3d:
+        """Create a fixed 3D Gaussian filter implemented as a PyTorch convolution.
+
+        :param sigma: Gaussian standard deviation for each spatial axis.
+        :param channels: Number of channels processed independently by the depthwise filter.
+        :param truncate: Kernel radius expressed as a multiple of sigma.
+
+        :return: Configured ``torch.nn.Conv3d`` module with frozen Gaussian weights.
+        """
+
         # Set these to whatever you want for your gaussian filter
         kernel_size = tuple([2*round(s*truncate)+1 for s in sigma])
 
@@ -80,7 +133,15 @@ class GaussianBlur(Transform):
 
         return gaussian_filter
 
-    def _blur(self, image, mask=None):
+    def _blur(self, image: torch.Tensor, mask: torch.Tensor | None = None) -> torch.Tensor:
+        """Blur an image tensor using the configured Gaussian kernel.
+
+        :param image: Image tensor with shape compatible with 3D convolution.
+        :param mask: Optional mask reserved for future masked blur logic.
+
+        :return: Blurred image tensor.
+        """
+
         if callable(self.sigma):
             sigma = self.sigma()
         else:
@@ -91,7 +152,14 @@ class GaussianBlur(Transform):
 
         return filt(image.clone())
 
-    def __call__(self, data_dict, *args, **kwargs):
+    def __call__(self, data_dict: dict, *args, **kwargs) -> dict:
+        """Apply Gaussian smoothing to each configured dictionary entry.
+
+        :param data_dict: Subject dictionary containing the selected image entries.
+
+        :return: Updated subject dictionary with blurred images.
+        """
+
         for k in self.keys:
             type_dict = fn_utils.get_type_dict(data_dict[k])
             image = fn_utils.convert_to_tensor(data_dict[k])
@@ -121,15 +189,34 @@ class GaussianBlur(Transform):
         return data_dict
 
 class AlignLR(Transform):
+    """Estimate a left-right symmetry alignment for an image or mask.
+
+    This transform optimizes a rigid transform that makes the selected reference mask
+    more symmetric around the left-right axis. The resulting matrices are later used
+    to create a common template space.
+    """
+
     def __init__(self,
-                 keys,
-                 ref_im,
-                 ref_v2r,
-                 rescaling_factor=1,
-                 w_reg=0.01,
-                 angle_factor=1.,
-                 tx_factor=1.,
-                 device='cpu'):
+                keys: list,
+                ref_im,
+                ref_v2r: str,
+                rescaling_factor: float = 1,
+                w_reg: float = 0.01,
+                angle_factor=1.0,
+                tx_factor=1.0,
+                device: str = "cpu",
+                ) -> None:
+        """Initialize the left-right alignment transform.
+
+        :param keys: Affine keys that will be updated with the estimated alignment.
+        :param ref_im: Image or list of image keys used to estimate the symmetry alignment.
+        :param ref_v2r: Dictionary key containing the reference voxel-to-RAS affine.
+        :param rescaling_factor: Optional spatial rescaling factor used before optimization.
+        :param w_reg: Weight of the regularization loss during alignment.
+        :param angle_factor: Scaling factor applied to rotation parameters.
+        :param tx_factor: Scaling factor applied to translation parameters.
+        :param device: PyTorch device used for optimization.
+        """
 
         #TODO check that all hyperparameters are used.
 
@@ -148,7 +235,15 @@ class AlignLR(Transform):
         if isinstance(tx_factor, (float, int)):
             self.tx_factor = np.array([tx_factor]*3)
 
-    def _compute_cog(self, mask, v2r_init):
+    def _compute_cog(self, mask: np.ndarray, v2r_init: np.ndarray) -> np.ndarray:
+        """Compute a translation matrix that centers the mask around its center of gravity.
+
+        :param mask: Binary mask used to estimate the center of gravity.
+        :param v2r_init: Initial voxel-to-RAS affine matrix.
+
+        :return: 4x4 affine translation matrix that recenters the mask in RAS space.
+        """
+
         idx = np.where(mask > 0)
         mx, my, mz = np.median(idx[0]), np.median(idx[1]), np.median(idx[2])
         ref_cog = v2r_init @ np.array([mx, my, mz, 1])
@@ -160,7 +255,16 @@ class AlignLR(Transform):
 
         return T_ref_cog
 
-    def _align_LR(self, proxy):
+    def _align_LR(self, proxy: nib.Nifti1Image) -> tuple[np.ndarray, np.ndarray]:
+        """Optimize a rigid left-right alignment for a NIfTI proxy.
+
+        :param proxy: NIfTI image containing the mask or stacked masks used for symmetry
+            alignment.
+
+        :return: Tuple with the optimized RAS-space transform and the center-of-gravity
+            transform.
+        """
+
         # Read input image(s)
         # TODO: check what is the shape of the proxy 3D or 5D and go ahead with one option only.
         v2r_init = proxy.affine.astype('float32')
@@ -209,7 +313,15 @@ class AlignLR(Transform):
 
         return model['reg'].get_ras_matrix()[0].detach().cpu().numpy(), T_ref_cog
 
-    def __call__(self, data_dict, *args, **kwargs):
+    def __call__(self, data_dict: dict, *args, **kwargs) -> dict:
+        """Estimate and store left-right alignment matrices in the subject dictionary.
+
+        :param data_dict: Subject dictionary containing reference images and affine matrices.
+
+        :return: Updated subject dictionary with ``rot_*`` and ``aligned_*`` affine
+        entries.
+        """
+        
         v2r = data_dict[self.ref_v2r]
         proxy = nib.Nifti1Image(np.stack([data_dict[r] for r in self.ref_im], axis=-1), v2r)
 
@@ -221,7 +333,21 @@ class AlignLR(Transform):
         return data_dict
 
 class CreateTemplateSpace(Transform):
-    def __init__(self, keys, resolution=1, name='template'):
+    """Create a shared template grid for several images and masks.
+
+    The transform computes a bounding box that contains all selected images in RAS
+    space and resamples them into the same voxel grid.
+    """
+
+    def __init__(self, keys: dict, resolution: float | list = 1, name: str = "template") -> None:
+        """Initialize the template-space creation transform.
+
+        :param keys: Mapping from image keys to their corresponding affine keys.
+        :param resolution: Template voxel spacing in millimeters, either scalar or 3-element
+            sequence.
+        :param name: Prefix used for the generated template-space dictionary keys.
+        """
+
         self.keys = keys
         self.name = name
 
@@ -230,7 +356,14 @@ class CreateTemplateSpace(Transform):
 
         self.resolution = resolution
 
-    def run_tensor(self, proxy_list):
+    def run_tensor(self, proxy_list: list) -> dict:
+        """Create template-space images from tensor-based proxy dictionaries.
+        
+        :param proxy_list: List of proxy dictionaries containing tensor data, shapes, affines
+            and transpose metadata.
+
+        :return: Dictionary with template-space images and the template affine matrix.
+        """
 
         return_dict = {}
         images, v2r = fn_utils.create_template_space_tensor(proxy_list, mode='linear', resolution=self.resolution)
@@ -243,7 +376,15 @@ class CreateTemplateSpace(Transform):
                 return_dict[self.name + '_' + im_str] = images[i]
         return return_dict
 
-    def run_array(self, proxy_list):
+    def run_array(self, proxy_list: list) -> dict:
+        """Create template-space images from NumPy-based proxy dictionaries.
+
+        :param proxy_list: List of proxy dictionaries containing array data, shapes, affines and
+            transpose metadata.
+
+        :return: Dictionary with template-space images and the template affine matrix.
+        """
+
         return_dict = {}
 
         images, v2r = fn_utils.create_template_space(proxy_list, mode='linear', resolution=self.resolution)
@@ -257,7 +398,13 @@ class CreateTemplateSpace(Transform):
 
         return return_dict
 
-    def __call__(self, data_dict):
+    def __call__(self, data_dict: dict) -> dict:
+        """Resample selected images and masks into a common template space.
+
+        :param data_dict: Subject dictionary containing images, masks and their affine matrices.
+
+        :return: Updated subject dictionary with template-space images and affine matrix.
+        """
 
         run_tensor = False
         proxy_list, transpose_list = [], []
@@ -310,11 +457,31 @@ class CreateTemplateSpace(Transform):
         return data_dict
 
 class ToNumpy(Transform):
-    def __init__(self, keys, to_nibabel=False):
+    """Convert selected tensor entries in a dictionary to NumPy arrays.
+
+    This transform is typically used after PyTorch-based preprocessing or registration
+    before saving outputs with nibabel or pandas.
+    """
+
+    def __init__(self, keys: list, to_nibabel: bool = False) -> None:
+        """Initialize the tensor-to-NumPy conversion transform.
+
+        :param keys: Dictionary keys converted from tensors to NumPy arrays.
+        :param to_nibabel: If True, convert channel-first 4D tensors to nibabel-compatible
+            channel last arrays.
+        """
+
         self.keys = keys
         self.to_nibabel = to_nibabel
 
-    def __call__(self, data_dict, *args, **kwargs):
+    def __call__(self, data_dict: dict, *args, **kwargs) -> dict:
+        """Convert selected tensor entries to NumPy arrays in place.
+
+        :param data_dict: Dictionary containing tensor or array entries.
+
+        :return: Updated dictionary with selected entries converted to NumPy arrays.
+        """
+
         for k in self.keys:
             if isinstance(data_dict[k], torch.Tensor):
                 data_dict[k] = np.squeeze(data_dict[k].detach().cpu().numpy())
@@ -324,7 +491,13 @@ class ToNumpy(Transform):
         return data_dict
 
 def get_preprocessing_transforms(device: str) -> dict:
-    """Ordered dict of transforms applied before the registration loop."""
+    """Build the ordered preprocessing transform dictionary used before registration.
+
+    :param device: PyTorch device used by transforms that require optimization.
+
+    :return: Dictionary of named preprocessing transforms executed in order.
+    """
+    
     return {
         'align_dat': AlignLR(
             keys=['dat_v2r'],
