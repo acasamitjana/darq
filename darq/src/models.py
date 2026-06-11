@@ -29,7 +29,7 @@ class InstanceModelClassic(nn.Module):
         :param image_shape: Spatial image shape used to build the interpolation grid.
         :param ref_v2r: Reference voxel-to-RAS affine matrix.
         :param flo_v2r: Optional floating-image voxel-to-RAS affine matrix. If omitted, the
-        reference affine is reused.
+            reference affine is reused.
         :param batchsize: Number of transformations optimized in parallel.
         :param device: PyTorch device used for tensors and parameters.
         :param kwargs: Reserved keyword arguments for subclasses.

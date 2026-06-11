@@ -3,7 +3,7 @@ import copy
 import time
 from os import makedirs
 from os.path import join, exists
-import subprocess
+import shutil
 import numpy as np
 import torch
 from skimage.morphology import binary_dilation, binary_opening, ball
@@ -201,149 +201,390 @@ def _build_optimizer(model, opt_str: str) -> torch.optim.Optimizer:
 
 def process_subject(data_dict: dict, preproc_tf: dict, dat_tf: list,
                     main_dict: dict, args) -> dict | None:
-    """Run the full DaTSCAN-to-MRI registration pipeline for one subject/session.
-
-    The function aligns the input images, builds DaT-derived masks, simulates a DaTlike
-    MRI mask, estimates a rigid registration and writes the session results.
-
-    :param data_dict: Subject/session dictionary returned by the dataset.
-    :param preproc_tf: Ordered preprocessing transforms applied before registration.
-    :param dat_tf: Transforms used to create the simulated DaT image from the MRI striatal
-        mask.
-    :param main_dict: Runtime configuration including device, output directory and
-        registration hyperparameters.
-    :param args: Command-line arguments controlling optimizer choice, recomputation and
-        hardware options.
-
-    :return: Status dictionary when the session is processed or skipped, or None if the
-        input is invalid.
-    """
-
+    """Run the complete registration pipeline for one subject/session."""
     if data_dict is None:
         return None
 
-    device     = main_dict['device']
-    output_dir = main_dict['output_dir']
-    tag        = data_dict['id']
-    temp_dir   = join(output_dir, 'tmp')
+    run_info = _prepare_subject_run(data_dict, main_dict)
 
-    if not exists(output_dir):
-        makedirs(output_dir)
-
-    # Skip or reuse already-registered sessions
-    sbr_file = join(output_dir, tag + '_sbr.tsv')
-
-    if exists(sbr_file) and not args.force:
-        print(f' * Skipping {tag}: results already exist. Use --force to recompute.')
-        return {'exit': 0}
+    if _should_skip_subject(run_info["output_dir"], run_info["tag"], args.force):
+        return {"exit": 0}
 
     t0 = time.time()
 
-    # ── Step 1: preprocessing ─────────────────────────────────────────────────
-    print(' * Preprocessing.')
-    for tf in preproc_tf.values():
-        data_dict = tf(data_dict)
+    data_dict = _run_preprocessing_step(
+        data_dict=data_dict,
+        preproc_tf=preproc_tf,
+        output_dir=run_info["output_dir"],
+        tag=run_info["tag"],
+    )
 
-    np.save(join(output_dir, tag + '_space-T1wdseg_rot.npy'), data_dict['rot_label_v2r'])
-    np.save(join(output_dir, tag + '_space-dat_rot.npy'),     data_dict['rot_dat_v2r'])
+    dat_context = _build_dat_symmetry_and_masks(data_dict)
 
-    # ── Step 2: DaT symmetry mask ─────────────────────────────────────────────
-    print(' * DaT symmetry and mask.')
-    template_v2r    = data_dict['template_v2r']
-    dat_raw         = data_dict['template_dat_image']
-    dat_symm        = 0.5 * (dat_raw + _flip_dat(dat_raw, template_v2r, agg='flip'))
-    mask_symm       = _get_dat_mask(dat_symm, template_v2r)
-    mask_dilated    = binary_dilation(mask_symm, np.ones((10, 10, 10)))
+    data_dict, mri_context = _simulate_dat_from_mri(
+        data_dict=data_dict,
+        dat_tf=dat_tf,
+        template_v2r=dat_context["template_v2r"],
+        dat_mask=dat_context["dat_mask"],
+    )
 
-    _, crop = fn_utils.crop_label(mask_dilated, margin=5)
-    cuboid  = np.zeros_like(mask_dilated)
-    cuboid[crop[0][0]:crop[0][1], crop[1][0]:crop[1][1], crop[2][0]:crop[2][1]] = 1
+    tensor_dict = _build_registration_tensors(
+        data_dict=data_dict,
+        dat_context=dat_context,
+        mri_context=mri_context,
+        device=run_info["device"],
+    )
 
-    mask_raw  = _get_dat_mask_prior(dat_raw, cuboid, percentage=1)
-    mask_flip = _flip_dat(mask_raw, template_v2r, agg='flip')
-    dat_mask  = (mask_raw + mask_flip) > 0
+    tensor_dict = _run_registration_step(
+        tensor_dict=tensor_dict,
+        data_dict=data_dict,
+        dat_context=dat_context,
+        mri_context=mri_context,
+        main_dict=main_dict,
+        args=args,
+        device=run_info["device"],
+    )
 
-    M = np.percentile(dat_raw[dat_mask], 99.5)
-    m = np.percentile(dat_raw[dat_mask], 0.5)
-    dat_image = np.clip((dat_raw - m) / (M - m), 0, None)
-    dat_image[~dat_mask] = 0
+    _save_subject_outputs(
+        data_dict=data_dict,
+        tensor_dict=tensor_dict,
+        output_dir=run_info["output_dir"],
+        tag=run_info["tag"],
+        loss=tensor_dict["loss"],
+        force_flag=args.force,
+    )
 
-    # GMM-based brain foreground
-    n_clusters = 6
-    dat_seg     = GMM(n_components=n_clusters, random_state=0).fit_predict(dat_symm.reshape(-1, 1))
-    dat_seg     = dat_seg.reshape(dat_symm.shape)
-    means_order = np.argsort([np.mean(dat_symm[dat_seg == u]) for u in np.unique(dat_seg)])
-    brain_dat   = np.zeros_like(dat_symm)
-    for i_k in means_order[1:][::-1]:   # skip background cluster
-        brain_dat[dat_seg == i_k] = 1
-        if np.sum(brain_dat) > 2 * np.sum(data_dict['template_mask_brain']):
-            break
+    _clean_temp_dir(run_info["temp_dir"])
 
-    # ── Step 3: MRI DaT simulation ────────────────────────────────────────────
-    print(' * MRI DaT simulation and mask.')
-    data_dict = {'simulated_dat': data_dict['template_mask_str'],
-                 'v2r': template_v2r, **data_dict}
-    for tf in dat_tf:
-        data_dict = tf(data_dict)
+    print(f'Done in {round(time.time() - t0, 2)}s.\n')
+    return {"exit": 0}
 
-    km      = KMeans(n_clusters=2, random_state=0, n_init='auto').fit(data_dict['simulated_dat'].reshape(-1, 1))
-    mri_seg = km.labels_.reshape(data_dict['simulated_dat'].shape)
-    hi_idx  = np.argmax(km.cluster_centers_)
-    mri_mask = mri_seg == hi_idx
-    M = np.max(data_dict['simulated_dat'][mri_mask])
-    m = np.min(data_dict['simulated_dat'][mri_mask])
-    sim_dat = (data_dict['simulated_dat'] - m) / (M - m)
+def _prepare_subject_run(data_dict: dict, main_dict: dict) -> dict:
+    """Collect common paths and metadata required to process one session."""
+    output_dir = main_dict["output_dir"]
 
-    mri_cog  = [np.mean(idx) for idx in np.where(mri_mask)]
-    dat_cog  = [np.mean(idx) for idx in np.where(dat_mask)]
-    tx_init  = np.asarray(dat_cog) - np.asarray(mri_cog)
+    makedirs(output_dir, exist_ok=True)
 
-    # ── Step 4: registration ──────────────────────────────────────────────────
-    print(' * MRI-DaT registration.')
-    ref_mask = (np.stack([data_dict['template_mask_brain'],
-                           data_dict['template_mask_occ']], axis=0)[np.newaxis] > 0.5).astype('float')
-    flo_mask = (np.stack([brain_dat, brain_dat], axis=0)[np.newaxis] > 0.5).astype('float')
-
-    tensor_dict = {
-        'ref_image':   torch.as_tensor(mri_mask[np.newaxis, np.newaxis], dtype=torch.float).to(device),
-        'ref_mask':    torch.as_tensor(ref_mask, dtype=torch.float).to(device),
-        'flo_image':   torch.as_tensor(dat_mask[np.newaxis, np.newaxis], dtype=torch.float).to(device),
-        'flo_mask':    torch.as_tensor(flo_mask, dtype=torch.float).to(device),
-        'template_v2r': template_v2r,
+    return {
+        "device": main_dict["device"],
+        "output_dir": output_dir,
+        "tag": data_dict["id"],
+        "temp_dir": join(output_dir, "tmp"),
     }
 
+
+def _should_skip_subject(output_dir: str, tag: str, force_flag: bool) -> bool:
+    """Return True if this session already has outputs and recomputation is disabled."""
+    sbr_file = join(output_dir, tag + "_sbr.tsv")
+
+    if exists(sbr_file) and not force_flag:
+        print(f" * Skipping {tag}: results already exist. Use --force to recompute.")
+        return True
+
+    return False
+
+
+def _run_preprocessing_step(data_dict: dict, preproc_tf: dict,
+                            output_dir: str, tag: str) -> dict:
+    """Apply preprocessing transforms and save rotation matrices."""
+    print(" * Preprocessing.")
+
+    for transform in preproc_tf.values():
+        data_dict = transform(data_dict)
+
+    np.save(join(output_dir, tag + "_space-T1wdseg_rot.npy"),
+            data_dict["rot_label_v2r"])
+
+    np.save(join(output_dir, tag + "_space-dat_rot.npy"),
+            data_dict["rot_dat_v2r"])
+
+    return data_dict
+
+def _build_dat_symmetry_and_masks(data_dict: dict) -> dict:
+    """Create symmetric DaT image, striatal DaT mask and DaT brain foreground."""
+    print(" * DaT symmetry and mask.")
+
+    template_v2r = data_dict["template_v2r"]
+    dat_raw = data_dict["template_dat_image"]
+
+    dat_symm = _compute_symmetric_dat(dat_raw, template_v2r)
+    cuboid = _build_dat_prior_cuboid(dat_symm, template_v2r)
+
+    dat_mask = _build_symmetric_dat_mask(dat_raw, template_v2r, cuboid)
+    dat_image = _normalize_dat_inside_mask(dat_raw, dat_mask)
+
+    brain_dat = _estimate_dat_brain_foreground(
+        dat_symm=dat_symm,
+        reference_brain_mask=data_dict["template_mask_brain"],
+    )
+
+    return {
+        "template_v2r": template_v2r,
+        "dat_raw": dat_raw,
+        "dat_symm": dat_symm,
+        "dat_mask": dat_mask,
+        "dat_image": dat_image,
+        "brain_dat": brain_dat,
+    }
+
+
+def _compute_symmetric_dat(dat_raw: np.ndarray, template_v2r: np.ndarray) -> np.ndarray:
+    """Average the DaT image with its left-right flipped version."""
+    dat_flip = _flip_dat(dat_raw, template_v2r, agg="flip")
+    return 0.5 * (dat_raw + dat_flip)
+
+
+def _build_dat_prior_cuboid(dat_symm: np.ndarray, template_v2r: np.ndarray) -> np.ndarray:
+    """Build a cuboid prior around the high-uptake symmetric DaT region."""
+    mask_symm = _get_dat_mask(dat_symm, template_v2r)
+    mask_dilated = binary_dilation(mask_symm, np.ones((10, 10, 10)))
+
+    _, crop = fn_utils.crop_label(mask_dilated, margin=5)
+
+    cuboid = np.zeros_like(mask_dilated)
+    cuboid[
+        crop[0][0]:crop[0][1],
+        crop[1][0]:crop[1][1],
+        crop[2][0]:crop[2][1],
+    ] = 1
+
+    return cuboid
+
+
+def _build_symmetric_dat_mask(dat_raw: np.ndarray,
+                              template_v2r: np.ndarray,
+                              cuboid: np.ndarray) -> np.ndarray:
+    """Create a DaT mask using the raw image and its flipped counterpart."""
+    mask_raw = _get_dat_mask_prior(dat_raw, cuboid, percentage=1)
+    mask_flip = _flip_dat(mask_raw, template_v2r, agg="flip")
+
+    return (mask_raw + mask_flip) > 0
+
+
+def _normalize_dat_inside_mask(dat_raw: np.ndarray, dat_mask: np.ndarray) -> np.ndarray:
+    """Robustly normalize DaT intensities inside the detected mask."""
+    high = np.percentile(dat_raw[dat_mask], 99.5)
+    low = np.percentile(dat_raw[dat_mask], 0.5)
+
+    dat_image = np.clip((dat_raw - low) / (high - low), 0, None)
+    dat_image[~dat_mask] = 0
+
+    return dat_image
+
+
+def _estimate_dat_brain_foreground(dat_symm: np.ndarray,
+                                   reference_brain_mask: np.ndarray) -> np.ndarray:
+    """Estimate DaT foreground using GMM clusters and the MRI brain-mask size."""
+    n_clusters = 6
+
+    dat_seg = GMM(n_components=n_clusters, random_state=0).fit_predict(
+        dat_symm.reshape(-1, 1)
+    )
+    dat_seg = dat_seg.reshape(dat_symm.shape)
+
+    labels = np.unique(dat_seg)
+    means = [np.mean(dat_symm[dat_seg == label]) for label in labels]
+    ordered_labels = labels[np.argsort(means)]
+
+    brain_dat = np.zeros_like(dat_symm)
+
+    for label in ordered_labels[1:][::-1]:  # skip background cluster
+        brain_dat[dat_seg == label] = 1
+
+        if np.sum(brain_dat) > 2 * np.sum(reference_brain_mask):
+            break
+
+    return brain_dat
+
+def _simulate_dat_from_mri(data_dict: dict, dat_tf: list,
+                           template_v2r: np.ndarray,
+                           dat_mask: np.ndarray) -> tuple[dict, dict]:
+    """Simulate a DaT-like MRI mask and estimate the initial translation."""
+    print(" * MRI DaT simulation and mask.")
+
+    data_dict = {
+        **data_dict,
+        "simulated_dat": data_dict["template_mask_str"],
+        "v2r": template_v2r,
+    }
+
+    for transform in dat_tf:
+        data_dict = transform(data_dict)
+
+    mri_mask, sim_dat = _build_mri_dat_mask(data_dict["simulated_dat"])
+    tx_init = _estimate_initial_translation(mri_mask, dat_mask)
+
+    return data_dict, {
+        "mri_mask": mri_mask,
+        "sim_dat": sim_dat,
+        "tx_init": tx_init,
+    }
+
+
+def _build_mri_dat_mask(simulated_dat: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Segment the simulated DaT image and keep the high-intensity cluster."""
+    km = KMeans(n_clusters=2, random_state=0, n_init="auto").fit(
+        simulated_dat.reshape(-1, 1)
+    )
+
+    mri_seg = km.labels_.reshape(simulated_dat.shape)
+    hi_idx = np.argmax(km.cluster_centers_)
+
+    mri_mask = mri_seg == hi_idx
+
+    high = np.max(simulated_dat[mri_mask])
+    low = np.min(simulated_dat[mri_mask])
+
+    sim_dat = (simulated_dat - low) / (high - low)
+
+    return mri_mask, sim_dat
+
+
+def _estimate_initial_translation(mri_mask: np.ndarray,
+                                  dat_mask: np.ndarray) -> np.ndarray:
+    """Estimate initial translation from the centers of gravity of both masks."""
+    mri_cog = np.asarray([np.mean(idx) for idx in np.where(mri_mask)])
+    dat_cog = np.asarray([np.mean(idx) for idx in np.where(dat_mask)])
+
+    return dat_cog - mri_cog
+
+def _build_registration_tensors(data_dict: dict,
+                                dat_context: dict,
+                                mri_context: dict,
+                                device: str) -> dict:
+    """Build PyTorch tensors required by the registration model."""
+    template_v2r = dat_context["template_v2r"]
+
+    ref_mask = (
+        np.stack(
+            [
+                data_dict["template_mask_brain"],
+                data_dict["template_mask_occ"],
+            ],
+            axis=0,
+        )[np.newaxis] > 0.5
+    ).astype("float")
+
+    flo_mask = (
+        np.stack(
+            [
+                dat_context["brain_dat"],
+                dat_context["brain_dat"],
+            ],
+            axis=0,
+        )[np.newaxis] > 0.5
+    ).astype("float")
+
+    return {
+        "ref_image": torch.as_tensor(
+            mri_context["mri_mask"][np.newaxis, np.newaxis],
+            dtype=torch.float,
+        ).to(device),
+
+        "ref_mask": torch.as_tensor(
+            ref_mask,
+            dtype=torch.float,
+        ).to(device),
+
+        "flo_image": torch.as_tensor(
+            dat_context["dat_mask"][np.newaxis, np.newaxis],
+            dtype=torch.float,
+        ).to(device),
+
+        "flo_mask": torch.as_tensor(
+            flo_mask,
+            dtype=torch.float,
+        ).to(device),
+
+        "template_v2r": template_v2r,
+    }
+
+
+def _run_registration_step(tensor_dict: dict,
+                           data_dict: dict,
+                           dat_context: dict,
+                           mri_context: dict,
+                           main_dict: dict,
+                           args,
+                           device: str) -> dict:
+    """Run rigid MRI-DaT registration and return the registered tensors."""
+    print(" * MRI-DaT registration.")
+
+    template_v2r = dat_context["template_v2r"]
+
     reg_model = models.InstanceRigidModelClassic(
-        data_dict['template_space'].shape,
-        ref_v2r=template_v2r.astype('float32'),
-        flo_v2r=template_v2r.astype('float32'),
-        tx_factor=np.array([10, 1/1000, 1/1000]),
-        angle_factor=np.array([1/100, 1, 1]),
-        tx_init=tx_init,
+        data_dict["template_space"].shape,
+        ref_v2r=template_v2r.astype("float32"),
+        flo_v2r=template_v2r.astype("float32"),
+        tx_factor=np.array([10, 1 / 1000, 1 / 1000]),
+        angle_factor=np.array([1 / 100, 1, 1]),
+        tx_init=mri_context["tx_init"],
         device=device,
     ).to(device)
 
-    optimizer  = _build_optimizer(reg_model, args.opt_str)
-    loss_dict  = _build_loss_dict(device, template_v2r)
+    optimizer = _build_optimizer(reg_model, args.opt_str)
+    loss_dict = _build_loss_dict(device, template_v2r)
 
-    print('    Losses: ' + '; '.join(f'{k}(w={v["weight"]})' for k, v in loss_dict.items()))
-    session = models.JointInstanceReg(
-        loss_dict, main_dict, da=[], trainable_keys={'reg': 'reg'}, verbose=True,
+    print(
+        "    Losses: "
+        + "; ".join(f'{key}(w={value["weight"]})'
+                    for key, value in loss_dict.items())
     )
-    tensor_dict = session.register(tensor_dict, {'reg': reg_model}, {'reg': optimizer})
-    loss = tensor_dict['loss']
-    print(f'    Final loss: {loss}')
 
-    # ── Step 5: save ──────────────────────────────────────────────────────────
-    tensor_dict = ToNumpy(keys=['ref_image', 'flo_image', 'reg_image'], to_nibabel=True)(tensor_dict)
-    affine_ras  = np.squeeze(tensor_dict['affine_ras'].cpu().detach().numpy())
-    np.save(join(output_dir, tag + '_space-symmetricT1w_aff.npy'), affine_ras)
+    session = models.JointInstanceReg(
+        loss_dict,
+        main_dict,
+        da=[],
+        trainable_keys={"reg": "reg"},
+        verbose=True,
+    )
 
-    save_session_results(data_dict['dat'], data_dict['label'], loss=loss, tag=data_dict['id'],  results_dir=output_dir)
+    tensor_dict = session.register(
+        tensor_dict,
+        {"reg": reg_model},
+        {"reg": optimizer},
+    )
 
-    print(f'Done in {round(time.time() - t0, 2)}s.\n')
-    subprocess.call(['rm', '-rf', temp_dir])
-    return {'exit': 0}
+    print(f'    Final loss: {tensor_dict["loss"]}')
 
+    return tensor_dict
+
+
+def _save_subject_outputs(data_dict: dict,
+                          tensor_dict: dict,
+                          output_dir: str,
+                          tag: str,
+                          loss: float,
+                          force_flag: bool = False) -> None:
+    """Save affine matrix, registered outputs and quantitative results."""
+    tensor_dict = ToNumpy(
+        keys=["ref_image", "flo_image", "reg_image"],
+        to_nibabel=True,
+    )(tensor_dict)
+
+    affine_ras = np.squeeze(
+        tensor_dict["affine_ras"].cpu().detach().numpy()
+    )
+
+    np.save(
+        join(output_dir, tag + "_space-symmetricT1w_aff.npy"),
+        affine_ras,
+    )
+
+    save_session_results(
+        data_dict["dat"],
+        data_dict["label"],
+        loss=loss,
+        tag=data_dict["id"],
+        results_dir=output_dir,
+        force_flag=force_flag,
+    )
+
+
+def _clean_temp_dir(temp_dir: str) -> None:
+    """Remove temporary files generated during the processing of one session."""
+    if exists(temp_dir):
+        shutil.rmtree(temp_dir, ignore_errors=True)
 
 def _build_loss_dict(device: str, v2r: np.ndarray) -> dict:
     """Build the loss configuration used during MRI-DaT registration.

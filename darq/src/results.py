@@ -151,7 +151,7 @@ def _write_sbr_tsv(dat_image: np.ndarray,
     cols = ['id', 'processing', 'loss',  'hemi', 'aggregate', 'dat_str', 'dat_cau', 'dat_put', 'dat_occ']
 
     prev = _load_prev_tsv(out_file, cols, ['id', 'processing', 'hemi', 'aggregate'])
-    if force_flag and tag in (prev.get_level_values('id') if len(prev) else []):
+    if force_flag and tag in (prev.index.get_level_values('id') if len(prev) else []):
         prev = prev.drop(tag, level='id')
 
     rows = []
@@ -204,7 +204,7 @@ def _write_symmetry_tsv(dat_image_raw: np.ndarray,
     cols = ['id', 'hemi', 'metric', 'aggregate', 'dat_cau', 'dat_put']
 
     prev = _load_prev_tsv(out_file, cols, ['id', 'metric', 'hemi', 'aggregate'])
-    if force_flag and tag in (prev.get_level_values('id') if len(prev) else []):
+    if force_flag and tag in (prev.index.get_level_values('id') if len(prev) else []):
         prev = prev.drop(tag, level='id')
 
     v2r_symm  = dat_rot @ dat_v2r
