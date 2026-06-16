@@ -3,6 +3,6 @@ testpaths = ["tests"]
 pythonpath = ["."]
 addopts = "-q"
 markers = [
-    "slow: tests lentos o de integración",
-    "gpu: tests que necesitan CUDA",
+    "slow: tests lents o de integració",
+    "gpu: tests que necessiten CUDA",
 ]
