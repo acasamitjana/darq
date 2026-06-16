@@ -50,7 +50,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install pytest pytest-cov
           pip install nibabel numpy pandas torch scikit-image scikit-learn scipy tqdm joblib
-          pip install -e .
 
       - name: Run tests
         run: |
