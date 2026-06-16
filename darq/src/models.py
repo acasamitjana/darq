@@ -565,7 +565,7 @@ class JointInstanceAlign(object):
         :param kwargs: Additional optimization arguments.
 
         :return: Updated data dictionary containing parameters, affine matrices, loss and
-        registered outputs.
+            registered outputs.
         """
 
         logs_dict = self.train(data_dict, model_dict, optimizer_dict, **kwargs)

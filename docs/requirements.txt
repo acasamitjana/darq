@@ -1,0 +1,11 @@
+sphinx
+sphinx-rtd-theme
+nibabel
+numpy
+pandas
+torch
+scikit-image
+scikit-learn
+scipy
+tqdm
+joblib
