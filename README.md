@@ -5,12 +5,17 @@
 </p>
 
 <p align="center">
+   <img src="assets/darq_logo.png" alt="DARQ logo" width="600"/>
+</p>
+
+<p align="center">
   <img src="https://img.shields.io/badge/python-3.11-blue" alt="Python 3.11" />
   <img src="https://img.shields.io/badge/testing-pytest-blue" alt="pytest" />
   <img src="https://img.shields.io/badge/docs-Sphinx%20%7C%20ReadTheDocs-blue" alt="Documentation" />
   <img src="https://img.shields.io/badge/status-development-orange" alt="Development status" />
   <img src="https://img.shields.io/badge/code%20style-clean-lightgrey" alt="Code style" />
 </p>
+
 
 ---
 
