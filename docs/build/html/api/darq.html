@@ -1,0 +1,384 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>darq package &mdash; DARQ 0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=2709fde1"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="darq.src package" href="darq.src.html" />
+    <link rel="prev" title="darq" href="modules.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            DARQ
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="modules.html">darq</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">darq package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#subpackages">Subpackages</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="darq.src.html">darq.src package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="darq.utils.html">darq.utils package</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#submodules">Submodules</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#module-darq.cli">darq.cli module</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#darq.cli.parse_args"><code class="docutils literal notranslate"><span class="pre">parse_args()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#module-darq.config">darq.config module</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#darq.config.get_device"><code class="docutils literal notranslate"><span class="pre">get_device()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#module-darq.processing">darq.processing module</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#darq.processing.get_dat_transforms"><code class="docutils literal notranslate"><span class="pre">get_dat_transforms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#darq.processing.process_fn_parallel"><code class="docutils literal notranslate"><span class="pre">process_fn_parallel()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#darq.processing.process_subject"><code class="docutils literal notranslate"><span class="pre">process_subject()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#module-darq">Module contents</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">DARQ</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="modules.html">darq</a></li>
+      <li class="breadcrumb-item active">darq package</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/api/darq.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="darq-package">
+<h1>darq package<a class="headerlink" href="#darq-package" title="Link to this heading"></a></h1>
+<section id="subpackages">
+<h2>Subpackages<a class="headerlink" href="#subpackages" title="Link to this heading"></a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="darq.src.html">darq.src package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="darq.src.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="darq.src.html#module-darq.src.datasets">darq.src.datasets module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="darq.src.html#darq.src.datasets.MRI_DaT"><code class="docutils literal notranslate"><span class="pre">MRI_DaT</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="darq.src.html#module-darq.src.models">darq.src.models module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="darq.src.html#darq.src.models.InstanceAlignModelClassic"><code class="docutils literal notranslate"><span class="pre">InstanceAlignModelClassic</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="darq.src.html#darq.src.models.InstanceAlignModelClassic.forward"><code class="docutils literal notranslate"><span class="pre">InstanceAlignModelClassic.forward()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="darq.src.html#darq.src.models.InstanceAlignModelClassic.get_params"><code class="docutils literal notranslate"><span class="pre">InstanceAlignModelClassic.get_params()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="darq.src.html#darq.src.models.InstanceAlignModelClassic.get_params_scaled"><code class="docutils literal notranslate"><span class="pre">InstanceAlignModelClassic.get_params_scaled()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="darq.src.html#darq.src.models.InstanceAlignModelClassic.set_params"><code class="docutils literal notranslate"><span class="pre">InstanceAlignModelClassic.set_params()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="darq.src.html#darq.src.models.InstanceModelClassic"><code class="docutils literal notranslate"><span class="pre">InstanceModelClassic</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="darq.src.html#darq.src.models.InstanceModelClassic.forward"><code class="docutils literal notranslate"><span class="pre">InstanceModelClassic.forward()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="darq.src.html#darq.src.models.InstanceModelClassic.get_matrix"><code class="docutils literal notranslate"><span class="pre">InstanceModelClassic.get_matrix()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="darq.src.html#darq.src.models.InstanceModelClassic.get_params"><code class="docutils literal notranslate"><span class="pre">InstanceModelClassic.get_params()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="darq.src.html#darq.src.models.InstanceModelClassic.get_params_scaled"><code class="docutils literal notranslate"><span class="pre">InstanceModelClassic.get_params_scaled()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="darq.src.html#darq.src.models.InstanceModelClassic.get_ras_matrix"><code class="docutils literal notranslate"><span class="pre">InstanceModelClassic.get_ras_matrix()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="darq.src.html#darq.src.models.InstanceModelClassic.set_params"><code class="docutils literal notranslate"><span class="pre">InstanceModelClassic.set_params()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="darq.src.html#darq.src.models.InstanceRigidModelClassic"><code class="docutils literal notranslate"><span class="pre">InstanceRigidModelClassic</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="darq.src.html#darq.src.models.InstanceRigidModelClassic.get_params"><code class="docutils literal notranslate"><span class="pre">InstanceRigidModelClassic.get_params()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="darq.src.html#darq.src.models.InstanceRigidModelClassic.get_params_scaled"><code class="docutils literal notranslate"><span class="pre">InstanceRigidModelClassic.get_params_scaled()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="darq.src.html#darq.src.models.InstanceRigidModelClassic.set_params"><code class="docutils literal notranslate"><span class="pre">InstanceRigidModelClassic.set_params()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="darq.src.html#darq.src.models.JointInstanceAlign"><code class="docutils literal notranslate"><span class="pre">JointInstanceAlign</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="darq.src.html#darq.src.models.JointInstanceAlign.compute_loss"><code class="docutils literal notranslate"><span class="pre">JointInstanceAlign.compute_loss()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="darq.src.html#darq.src.models.JointInstanceAlign.forward"><code class="docutils literal notranslate"><span class="pre">JointInstanceAlign.forward()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="darq.src.html#darq.src.models.JointInstanceAlign.iterate"><code class="docutils literal notranslate"><span class="pre">JointInstanceAlign.iterate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="darq.src.html#darq.src.models.JointInstanceAlign.register"><code class="docutils literal notranslate"><span class="pre">JointInstanceAlign.register()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="darq.src.html#darq.src.models.JointInstanceAlign.train"><code class="docutils literal notranslate"><span class="pre">JointInstanceAlign.train()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="darq.src.html#darq.src.models.JointInstanceReg"><code class="docutils literal notranslate"><span class="pre">JointInstanceReg</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="darq.src.html#darq.src.models.JointInstanceReg.compute_loss"><code class="docutils literal notranslate"><span class="pre">JointInstanceReg.compute_loss()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="darq.src.html#darq.src.models.JointInstanceReg.forward"><code class="docutils literal notranslate"><span class="pre">JointInstanceReg.forward()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="darq.src.html#darq.src.models.JointInstanceReg.iterate"><code class="docutils literal notranslate"><span class="pre">JointInstanceReg.iterate()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="darq.src.html#module-darq.src.preprocessing">darq.src.preprocessing module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="darq.src.html#darq.src.preprocessing.AlignLR"><code class="docutils literal notranslate"><span class="pre">AlignLR</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="darq.src.html#darq.src.preprocessing.CreateTemplateSpace"><code class="docutils literal notranslate"><span class="pre">CreateTemplateSpace</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="darq.src.html#darq.src.preprocessing.CreateTemplateSpace.run_array"><code class="docutils literal notranslate"><span class="pre">CreateTemplateSpace.run_array()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="darq.src.html#darq.src.preprocessing.CreateTemplateSpace.run_tensor"><code class="docutils literal notranslate"><span class="pre">CreateTemplateSpace.run_tensor()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="darq.src.html#darq.src.preprocessing.GaussianBlur"><code class="docutils literal notranslate"><span class="pre">GaussianBlur</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="darq.src.html#darq.src.preprocessing.MorphologicalOperator"><code class="docutils literal notranslate"><span class="pre">MorphologicalOperator</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="darq.src.html#darq.src.preprocessing.ToNumpy"><code class="docutils literal notranslate"><span class="pre">ToNumpy</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="darq.src.html#darq.src.preprocessing.Transform"><code class="docutils literal notranslate"><span class="pre">Transform</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="darq.src.html#darq.src.preprocessing.get_preprocessing_transforms"><code class="docutils literal notranslate"><span class="pre">get_preprocessing_transforms()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="darq.src.html#module-darq.src.results">darq.src.results module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="darq.src.html#darq.src.results.save_session_results"><code class="docutils literal notranslate"><span class="pre">save_session_results()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="darq.src.html#module-darq.src">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="darq.utils.html">darq.utils package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="darq.utils.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="darq.utils.html#module-darq.utils.fn_utils">darq.utils.fn_utils module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="darq.utils.html#darq.utils.fn_utils.DiceLoss"><code class="docutils literal notranslate"><span class="pre">DiceLoss</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="darq.utils.html#darq.utils.fn_utils.DiceLoss.forward"><code class="docutils literal notranslate"><span class="pre">DiceLoss.forward()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="darq.utils.html#darq.utils.fn_utils.DiceOverTrueLoss"><code class="docutils literal notranslate"><span class="pre">DiceOverTrueLoss</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="darq.utils.html#darq.utils.fn_utils.DiceOverTrueLoss.forward"><code class="docutils literal notranslate"><span class="pre">DiceOverTrueLoss.forward()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="darq.utils.html#darq.utils.fn_utils.L1Loss"><code class="docutils literal notranslate"><span class="pre">L1Loss</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="darq.utils.html#darq.utils.fn_utils.L2Loss"><code class="docutils literal notranslate"><span class="pre">L2Loss</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="darq.utils.html#darq.utils.fn_utils.MaxUptake"><code class="docutils literal notranslate"><span class="pre">MaxUptake</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="darq.utils.html#darq.utils.fn_utils.MaxUptake.forward"><code class="docutils literal notranslate"><span class="pre">MaxUptake.forward()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="darq.utils.html#darq.utils.fn_utils.NCCLoss"><code class="docutils literal notranslate"><span class="pre">NCCLoss</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="darq.utils.html#darq.utils.fn_utils.NCCLoss.forward"><code class="docutils literal notranslate"><span class="pre">NCCLoss.forward()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="darq.utils.html#darq.utils.fn_utils.NCCLoss.ncc"><code class="docutils literal notranslate"><span class="pre">NCCLoss.ncc()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="darq.utils.html#darq.utils.fn_utils.SSIM"><code class="docutils literal notranslate"><span class="pre">SSIM</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="darq.utils.html#darq.utils.fn_utils.SSIM.forward"><code class="docutils literal notranslate"><span class="pre">SSIM.forward()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="darq.utils.html#darq.utils.fn_utils.Symmetry"><code class="docutils literal notranslate"><span class="pre">Symmetry</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="darq.utils.html#darq.utils.fn_utils.Symmetry.forward"><code class="docutils literal notranslate"><span class="pre">Symmetry.forward()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="darq.utils.html#darq.utils.fn_utils.convert_to_numpy"><code class="docutils literal notranslate"><span class="pre">convert_to_numpy()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="darq.utils.html#darq.utils.fn_utils.convert_to_tensor"><code class="docutils literal notranslate"><span class="pre">convert_to_tensor()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="darq.utils.html#darq.utils.fn_utils.convert_to_type"><code class="docutils literal notranslate"><span class="pre">convert_to_type()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="darq.utils.html#darq.utils.fn_utils.create_template_space"><code class="docutils literal notranslate"><span class="pre">create_template_space()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="darq.utils.html#darq.utils.fn_utils.create_template_space_tensor"><code class="docutils literal notranslate"><span class="pre">create_template_space_tensor()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="darq.utils.html#darq.utils.fn_utils.crop_label"><code class="docutils literal notranslate"><span class="pre">crop_label()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="darq.utils.html#darq.utils.fn_utils.fast_3D_interp_field_torch"><code class="docutils literal notranslate"><span class="pre">fast_3D_interp_field_torch()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="darq.utils.html#darq.utils.fn_utils.fast_3D_interp_torch"><code class="docutils literal notranslate"><span class="pre">fast_3D_interp_torch()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="darq.utils.html#darq.utils.fn_utils.get_type_dict"><code class="docutils literal notranslate"><span class="pre">get_type_dict()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="darq.utils.html#darq.utils.fn_utils.rescale_voxel_factor"><code class="docutils literal notranslate"><span class="pre">rescale_voxel_factor()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="darq.utils.html#darq.utils.fn_utils.vol_resample_fast"><code class="docutils literal notranslate"><span class="pre">vol_resample_fast()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="darq.utils.html#module-darq.utils.io">darq.utils.io module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="darq.utils.html#darq.utils.io.Callback"><code class="docutils literal notranslate"><span class="pre">Callback</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="darq.utils.html#darq.utils.io.Callback.on_epoch_fi"><code class="docutils literal notranslate"><span class="pre">Callback.on_epoch_fi()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="darq.utils.html#darq.utils.io.Callback.on_epoch_init"><code class="docutils literal notranslate"><span class="pre">Callback.on_epoch_init()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="darq.utils.html#darq.utils.io.Callback.on_step_fi"><code class="docutils literal notranslate"><span class="pre">Callback.on_step_fi()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="darq.utils.html#darq.utils.io.Callback.on_step_init"><code class="docutils literal notranslate"><span class="pre">Callback.on_step_init()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="darq.utils.html#darq.utils.io.Callback.on_train_fi"><code class="docutils literal notranslate"><span class="pre">Callback.on_train_fi()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="darq.utils.html#darq.utils.io.Callback.on_train_init"><code class="docutils literal notranslate"><span class="pre">Callback.on_train_init()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="darq.utils.html#darq.utils.io.PrinterCallback"><code class="docutils literal notranslate"><span class="pre">PrinterCallback</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="darq.utils.html#darq.utils.io.PrinterCallback.on_epoch_fi"><code class="docutils literal notranslate"><span class="pre">PrinterCallback.on_epoch_fi()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="darq.utils.html#darq.utils.io.PrinterCallback.on_epoch_init"><code class="docutils literal notranslate"><span class="pre">PrinterCallback.on_epoch_init()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="darq.utils.html#darq.utils.io.PrinterCallback.on_step_fi"><code class="docutils literal notranslate"><span class="pre">PrinterCallback.on_step_fi()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="darq.utils.html#darq.utils.io.PrinterCallback.on_train_fi"><code class="docutils literal notranslate"><span class="pre">PrinterCallback.on_train_fi()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="darq.utils.html#darq.utils.io.PrinterCallback.on_train_init"><code class="docutils literal notranslate"><span class="pre">PrinterCallback.on_train_init()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="darq.utils.html#darq.utils.io.create_dir"><code class="docutils literal notranslate"><span class="pre">create_dir()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="darq.utils.html#darq.utils.io.remove_synthseg_hemisphere"><code class="docutils literal notranslate"><span class="pre">remove_synthseg_hemisphere()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="darq.utils.html#darq.utils.io.remove_synthseg_parcellation"><code class="docutils literal notranslate"><span class="pre">remove_synthseg_parcellation()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="darq.utils.html#module-darq.utils.loader">darq.utils.loader module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="darq.utils.html#darq.utils.loader.build_subject"><code class="docutils literal notranslate"><span class="pre">build_subject()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="darq.utils.html#module-darq.utils">Module contents</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+<section id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Link to this heading"></a></h2>
+</section>
+<section id="module-darq.cli">
+<span id="darq-cli-module"></span><h2>darq.cli module<a class="headerlink" href="#module-darq.cli" title="Link to this heading"></a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="darq.cli.parse_args">
+<span class="sig-prename descclassname"><span class="pre">darq.cli.</span></span><span class="sig-name descname"><span class="pre">parse_args</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/darq/cli.html#parse_args"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#darq.cli.parse_args" title="Link to this definition"></a></dt>
+<dd><p>Parse command-line arguments for the DARQ processing pipeline.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>argparse namespace containing input paths, output path, optimizer
+settings, execution flags and hardware options.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>Namespace</em></p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="module-darq.config">
+<span id="darq-config-module"></span><h2>darq.config module<a class="headerlink" href="#module-darq.config" title="Link to this heading"></a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="darq.config.get_device">
+<span class="sig-prename descclassname"><span class="pre">darq.config.</span></span><span class="sig-name descname"><span class="pre">get_device</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cpu_flag</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/darq/config.html#get_device"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#darq.config.get_device" title="Link to this definition"></a></dt>
+<dd><p>Return the computation device selected by the user.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>cpu_flag</strong> (<em>bool</em>) – If True, force CPU execution. If False, select CUDA execution.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Device string used by PyTorch, either <code class="docutils literal notranslate"><span class="pre">'cpu'</span></code> or <code class="docutils literal notranslate"><span class="pre">'cuda'</span></code>.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="module-darq.processing">
+<span id="darq-processing-module"></span><h2>darq.processing module<a class="headerlink" href="#module-darq.processing" title="Link to this heading"></a></h2>
+<p>Per-subject registration pipeline: preprocessing → simulation → alignment → save.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="darq.processing.get_dat_transforms">
+<span class="sig-prename descclassname"><span class="pre">darq.processing.</span></span><span class="sig-name descname"><span class="pre">get_dat_transforms</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/darq/processing.html#get_dat_transforms"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#darq.processing.get_dat_transforms" title="Link to this definition"></a></dt>
+<dd><p>Build the transforms used to simulate DaT uptake from the MRI striatal mask.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List of transforms applied to the <code class="docutils literal notranslate"><span class="pre">simulated_dat</span></code> entry.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="darq.processing.process_fn_parallel">
+<span class="sig-prename descclassname"><span class="pre">darq.processing.</span></span><span class="sig-name descname"><span class="pre">process_fn_parallel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fn</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/darq/processing.html#process_fn_parallel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#darq.processing.process_fn_parallel" title="Link to this definition"></a></dt>
+<dd><p>Safely execute a processing function inside a parallel worker.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fn</strong> – Function to call in the worker process.</p></li>
+<li><p><strong>args</strong> – Positional arguments forwarded to the processing function.</p></li>
+<li><p><strong>kwargs</strong> – Keyword arguments forwarded to the processing function.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Function result, or None if the function raises an exception.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict | None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="darq.processing.process_subject">
+<span class="sig-prename descclassname"><span class="pre">darq.processing.</span></span><span class="sig-name descname"><span class="pre">process_subject</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data_dict</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">preproc_tf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dat_tf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">main_dict</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">args</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/darq/processing.html#process_subject"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#darq.processing.process_subject" title="Link to this definition"></a></dt>
+<dd><p>Run the complete registration pipeline for one subject/session.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>data_dict</strong> (<em>dict</em>)</p></li>
+<li><p><strong>preproc_tf</strong> (<em>dict</em>)</p></li>
+<li><p><strong>dat_tf</strong> (<em>list</em>)</p></li>
+<li><p><strong>main_dict</strong> (<em>dict</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>dict | None</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="module-darq">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-darq" title="Link to this heading"></a></h2>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="modules.html" class="btn btn-neutral float-left" title="darq" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="darq.src.html" class="btn btn-neutral float-right" title="darq.src package" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Adrià Casamitjana.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
