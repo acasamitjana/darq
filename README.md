@@ -13,7 +13,6 @@
   <img src="https://img.shields.io/badge/testing-pytest-blue" alt="pytest" />
   <img src="https://img.shields.io/badge/docs-Sphinx%20%7C%20ReadTheDocs-blue" alt="Documentation" />
   <img src="https://img.shields.io/badge/status-development-orange" alt="Development status" />
-  <img src="https://img.shields.io/badge/code%20style-clean-lightgrey" alt="Code style" />
 </p>
 
 
@@ -237,10 +236,6 @@ Possible ways to contribute include:
 - Refactoring code.
 - Suggesting new features.
 - Improving the processing pipeline.
-
-## Acknowledgements
-
-This project is developed in the context of a biomedical engineering internship at VICOROB, University of Girona.
 
 ## License
 
