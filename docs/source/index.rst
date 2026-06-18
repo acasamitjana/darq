@@ -16,5 +16,5 @@ documentation for details.
    :caption: Contents:
 
 
-
+   tutorials/dat2mri
    api/modules

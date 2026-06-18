@@ -51,6 +51,6 @@ jobs:
           pip install pytest pytest-cov
           pip install nibabel numpy pandas torch scikit-image scikit-learn scipy tqdm joblib
 
-      - name: Run tests
+      - name: Run tests with coverage
         run: |
-          pytest tests/ --cov=darq --cov-report=term-missing
+          pytest tests/ --cov=darq --cov-report=term-missing 
