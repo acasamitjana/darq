@@ -1,13 +1,12 @@
 import os
-from joblib import delayed, Parallel
+from joblib import delayed, Parallel  # kept for future parallel batch processing
 
 from darq.cli import parse_args
 from darq.config import get_device, BIDS_DIR, SEG_DIR, REGISTRATION_DEFAULTS
-from darq.utils.loader import build_subject
+from darq.utils.loader import build_subject, build_subject_list
 from darq.src.preprocessing import get_preprocessing_transforms
 from darq.processing import process_subject, process_fn_parallel, get_dat_transforms
 from darq.src.datasets import MRI_DaT
-
 
 def main() -> None:
     """Run the command-line entry point for the DaTSCAN-to-MRI pipeline.
@@ -28,8 +27,17 @@ def main() -> None:
     device = get_device(args.cpu)
 
     # ── Data ─────────────────────────────────────────────────────────────────
-    subject_list = build_subject(args)
-    dataset      = MRI_DaT(subject_list, transforms=[], crop_labels=True, crop_dat=False)
+    if args.bids_dir is not None:
+        subject_list = build_subject_list(
+            args=args,
+            bids_dir=args.bids_dir,
+            seg_dir=args.seg_dir,
+            dat_reg_dir=args.o,
+        )
+    else:
+        subject_list = build_subject(args)
+
+    dataset = MRI_DaT(subject_list, transforms=[], crop_labels=True, crop_dat=False)
 
     print(f'Total sessions to process: N={len(subject_list)}\n')
 
@@ -47,7 +55,7 @@ def main() -> None:
     # ── Processing loop ───────────────────────────────────────────────────────
     failed = []
     for it, index in enumerate(subject_list.index):
-        print(f'Subject: {index}  ({it}/{len(dataset)})')
+        print(f'Subject: {index}  ({it + 1}/{len(dataset)})')
         try:
             result = process_subject(dataset[index], preprocessing_tf, dat_tf, main_dict, args)
         except Exception as e:

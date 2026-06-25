@@ -23,6 +23,12 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument("--seg",  default=None, help="Input SynthSeg file (striatum segmentation).")
 
+    parser.add_argument("--bids_dir", default=None,
+                        help="Input BIDS directory for serial batch processing.")
+
+    parser.add_argument("--seg_dir", default=None,
+                        help="Directory containing SynthSeg segmentations for BIDS mode.")
+
     parser.add_argument("--o",   help="Output directory.")
 
 
