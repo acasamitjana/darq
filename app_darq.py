@@ -281,7 +281,6 @@ def _create_overlay_gallery(mri_path: Path, output_dir: Path, run_dir: Path) -> 
         axes[2].imshow(masked_dat, cmap="hot", alpha=0.55)
         axes[2].set_title("Overlay", fontsize=10)
 
-        fig.suptitle(f"{view_name} view", fontsize=12)
         fig.tight_layout()
         out_path = display_dir / f"overlay_{view_name.lower()}.png"
         fig.savefig(out_path, dpi=170, bbox_inches="tight")
@@ -411,14 +410,13 @@ def _mean_rows_from_sbr(raw_sbr: pd.DataFrame) -> pd.DataFrame:
 
 
 def _dat_biomarker_pdf_table(raw_sbr: pd.DataFrame) -> pd.DataFrame:
-    """Build a display-only biomarker table using values already written by the backend.
+    """Build an SBR table from backend mean uptake values.
 
-    No new biomarker is computed here. The table only rearranges aggregate=mean values
-    from the *_sbr.tsv file into a report-friendly layout.
+    SBR = regional mean uptake / occipital mean uptake - 1.
     """
     mean_df = _mean_rows_from_sbr(raw_sbr)
     if mean_df.empty:
-        return pd.DataFrame(columns=["Region", "Right", "Left", "Bilateral"])
+        return pd.DataFrame(columns=["Region", "Right SBR", "Left SBR", "Bilateral SBR"])
 
     def get_val(hemi: str, col: str):
         if "hemi" not in mean_df.columns or col not in mean_df.columns:
@@ -426,24 +424,65 @@ def _dat_biomarker_pdf_table(raw_sbr: pd.DataFrame) -> pd.DataFrame:
         rows = mean_df[mean_df["hemi"] == hemi]
         return rows.iloc[0][col] if not rows.empty else np.nan
 
+    def sbr(hemi: str, region_col: str):
+        region_value = get_val(hemi, region_col)
+        occ_value = get_val(hemi, "dat_occ")
+        if pd.isna(region_value) or pd.isna(occ_value) or occ_value == 0:
+            return np.nan
+        return region_value / occ_value - 1
+
     mapping = {
         "Striatum": "dat_str",
         "Caudate": "dat_cau",
         "Putamen": "dat_put",
-        "Occipital reference": "dat_occ",
     }
 
     rows = []
     for region, col in mapping.items():
         rows.append({
             "Region": region,
-            "Right": get_val("R", col),
-            "Left": get_val("L", col),
-            "Bilateral": get_val("Both", col),
+            "Right SBR": sbr("R", col),
+            "Left SBR": sbr("L", col),
+            "Bilateral SBR": sbr("Both", col),
         })
 
     return pd.DataFrame(rows)
 
+def _symmetry_pdf_table(raw_symm: pd.DataFrame) -> pd.DataFrame:
+    """Build a compact symmetry table using aggregate=mean rows from *_symm.tsv.
+
+    """
+    if raw_symm.empty:
+        return pd.DataFrame(columns=["Metric", "Region", "Right", "Left", "Bilateral"])
+
+    df = raw_symm.copy()
+
+    if "aggregate" in df.columns:
+        df = df[df["aggregate"] == "mean"].copy()
+
+    def get_val(metric: str, hemi: str, col: str):
+        needed = {"metric", "hemi", col}
+        if not needed.issubset(df.columns):
+            return np.nan
+
+        rows = df[(df["metric"] == metric) & (df["hemi"] == hemi)]
+        return rows.iloc[0][col] if not rows.empty else np.nan
+
+    rows = []
+    for metric in ["lncc", "l2"]:
+        for region, col in {
+            "Caudate": "dat_cau",
+            "Putamen": "dat_put",
+        }.items():
+            rows.append({
+                "Metric": metric,
+                "Region": region,
+                "Right": get_val(metric, "R", col),
+                "Left": get_val(metric, "L", col),
+                "Bilateral": get_val(metric, "Both", col),
+            })
+
+    return pd.DataFrame(rows)
 
 def _quality_control(completed: subprocess.CompletedProcess[str], raw_sbr: pd.DataFrame) -> str:
     """Return simple execution quality label."""
@@ -479,7 +518,7 @@ def _create_pdf_report(
     overlay_gallery: list[tuple[str, str]],
     completed: subprocess.CompletedProcess[str],
     status_text: str,
-) -> Path | None:
+    ) -> Path | None:
     """Create a volBrain-inspired PDF report for DARQ outputs."""
     pdf_path = run_dir / "DARQ_report.pdf"
 
@@ -487,6 +526,7 @@ def _create_pdf_report(
         with PdfPages(pdf_path) as pdf:
             qc = _quality_control(completed, raw_sbr)
             biomarker_table = _dat_biomarker_pdf_table(raw_sbr)
+            symmetry_table = _symmetry_pdf_table(raw_symm)
             dat_preview = _create_single_slice_image(dat_input_path, run_dir, "dat_input", cmap="gray")
             mri_preview = _create_single_slice_image(mri_input_path, run_dir, "mri_input", cmap="gray")
 
@@ -540,23 +580,35 @@ def _create_pdf_report(
             plt.close(fig)
 
             # -----------------------------------------------------------------
-            # Page 2: biomarker + classification + atrophy summary
+            # Page 2: biomarkers + symmetry + classification + atrophy summary
             # -----------------------------------------------------------------
             fig = plt.figure(figsize=(8.27, 11.69), facecolor="white")
             _draw_header(fig, "DARQ report")
-            _draw_section_bar(fig, 0.855, "DaTSCAN quantitative biomarkers (mean)")
 
-            ax = fig.add_axes([0.06, 0.62, 0.88, 0.20])
+            _draw_section_bar(fig, 0.855, "DaTSCAN quantitative biomarkers (SBR)")
+
+            ax = fig.add_axes([0.06, 0.665, 0.88, 0.15])
             _draw_table(
                 ax,
                 biomarker_table,
-                "Mean DaTSCAN uptake by region",
+                "SBR by region",
                 font_size=8,
                 scale_y=1.45,
             )
 
-            _draw_section_bar(fig, 0.535, "Classification")
-            class_ax = fig.add_axes([0.06, 0.445, 0.88, 0.07])
+            _draw_section_bar(fig, 0.585, "DaTSCAN symmetry biomarkers (mean)")
+
+            symm_ax = fig.add_axes([0.06, 0.405, 0.88, 0.14])
+            _draw_table(
+                symm_ax,
+                symmetry_table,
+                "Mean symmetry values by region",
+                font_size=8,
+                scale_y=1.35,
+            )
+
+            _draw_section_bar(fig, 0.335, "Classification")
+            class_ax = fig.add_axes([0.06, 0.265, 0.88, 0.055])
             class_ax.axis("off")
             class_ax.text(
                 0.0,
@@ -573,8 +625,8 @@ def _create_pdf_report(
                 color=REPORT_RED,
             )
 
-            _draw_section_bar(fig, 0.385, "MRI atrophy quantification")
-            atrophy_ax = fig.add_axes([0.06, 0.29, 0.88, 0.075])
+            _draw_section_bar(fig, 0.215, "MRI atrophy quantification")
+            atrophy_ax = fig.add_axes([0.06, 0.15, 0.88, 0.05])
             atrophy_ax.axis("off")
             atrophy_ax.text(
                 0.0,
@@ -591,64 +643,27 @@ def _create_pdf_report(
                 color=REPORT_RED,
             )
 
-            _draw_section_bar(fig, 0.23, "Quality control")
-            qc_ax = fig.add_axes([0.06, 0.12, 0.88, 0.085])
+            _draw_section_bar(fig, 0.095, "Quality control")
+            qc_ax = fig.add_axes([0.06, 0.03, 0.88, 0.05])
             qc_ax.axis("off")
-            qc_ax.text(0.0, 0.75, f"Quality control: {qc}", fontsize=12, fontweight="bold")
+            qc_ax.text(0.0, 0.75, f"Quality control: {qc}", fontsize=11, fontweight="bold")
             qc_ax.text(
                 0.0,
-                0.35,
+                0.30,
                 "A = good execution with generated biomarkers; B = execution completed but biomarkers require review; "
                 "C = failed execution.",
-                fontsize=8,
+                fontsize=7,
                 color=REPORT_DARK_GREY,
             )
 
             pdf.savefig(fig, bbox_inches="tight")
             plt.close(fig)
 
-            # -----------------------------------------------------------------
-            # Raw table pages: complete backend output, split over pages.
-            # -----------------------------------------------------------------
-            _add_raw_table_pages(pdf, raw_sbr, "Complete SBR TSV output", rows_per_page=18)
-            _add_raw_table_pages(pdf, raw_symm, "Complete symmetry TSV output", rows_per_page=20)
+            return pdf_path
 
-        return pdf_path
     except Exception as exc:
         print(f"[Warning] PDF report could not be created: {type(exc).__name__}: {exc}")
         return None
-
-
-def _add_raw_table_pages(pdf: PdfPages, df: pd.DataFrame, title: str, rows_per_page: int = 18) -> None:
-    """Append one or more PDF pages containing a complete backend table."""
-    if df.empty:
-        fig = plt.figure(figsize=(8.27, 11.69), facecolor="white")
-        _draw_header(fig, "DARQ report")
-        _draw_section_bar(fig, 0.86, title)
-        fig.text(0.06, 0.80, "No data available.", fontsize=10)
-        pdf.savefig(fig, bbox_inches="tight")
-        plt.close(fig)
-        return
-
-    n_pages = int(np.ceil(len(df) / rows_per_page))
-    for page in range(n_pages):
-        part = df.iloc[page * rows_per_page:(page + 1) * rows_per_page]
-        fig = plt.figure(figsize=(11.69, 8.27), facecolor="white")
-        # Landscape header.
-        ax_header = fig.add_axes([0.035, 0.90, 0.93, 0.065])
-        ax_header.set_facecolor(REPORT_BLUE)
-        ax_header.set_xticks([])
-        ax_header.set_yticks([])
-        for spine in ax_header.spines.values():
-            spine.set_visible(False)
-        ax_header.text(0.015, 0.5, "DARQ report", color="white", fontsize=20, va="center", ha="left", fontweight="bold")
-        ax_header.text(0.985, 0.5, f"{title} ({page + 1}/{n_pages})", color="white", fontsize=10, va="center", ha="right")
-
-        ax = fig.add_axes([0.035, 0.06, 0.93, 0.78])
-        _draw_table(ax, part, title, max_rows=None, font_size=6, scale_y=1.1)
-
-        pdf.savefig(fig, bbox_inches="tight")
-        plt.close(fig)
 
 
 # -----------------------------------------------------------------------------

@@ -1,0 +1,16 @@
+nibabel
+numpy
+pandas
+torch
+scikit-image
+scikit-learn
+scipy
+tqdm
+joblib
+
+[dev]
+pytest
+pytest-cov
+flake8
+sphinx
+sphinx-rtd-theme

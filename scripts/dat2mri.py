@@ -18,7 +18,7 @@ def main() -> None:
     :return: None. Results are written to the output directory selected by the user.
     """
     
-    os.system('clear')
+    os.system('cls' if os.name == 'nt' else 'clear')
     print('\n\n# ------------------------- #')
     print('# Running Dat2MRI algorithm #')
     print('# ------------------------- #\n\n')

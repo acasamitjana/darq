@@ -1,3 +1,51 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "darq-datscan"
+version = "0.1.0"
+description = "Automatic quantification pipeline of DaTSCAN images"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+    { name = "Adrià Casamitjana" }
+]
+dependencies = [
+    "nibabel",
+    "numpy",
+    "pandas",
+    "torch",
+    "scikit-image",
+    "scikit-learn",
+    "scipy",
+    "tqdm",
+    "joblib"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "flake8",
+    "sphinx",
+    "sphinx-rtd-theme"
+]
+
+[project.scripts]
+darq = "scripts.dat2mri:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["darq*", "scripts*"]
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.package-data]
+darq = ["data/labels_classes_priors/*.npy"]
+"darq.data.labels_classes_priors" = ["*.npy"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]

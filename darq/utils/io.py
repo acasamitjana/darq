@@ -1,7 +1,7 @@
 """Save per-session registration outputs and compute SBR / symmetry metrics."""
-import os
 from os import makedirs
 from os.path import join, exists
+from importlib.resources import files, as_file
 
 import numpy as np
 
@@ -190,14 +190,28 @@ class PrinterCallback(Callback):
         print('\n')
 
 # ── Labels ─────────────────────────────────────────────────────────────────
-repo_home = os.environ.get('PYTHONPATH')
-ctx_labels = np.load(join(repo_home, 'data', 'labels_classes_priors', 'synthseg_parcellation_labels.npy'))
-ctx_names = np.load(join(repo_home, 'data', 'labels_classes_priors', 'synthseg_parcellation_names.npy'))
+def _load_label_resource(filename: str) -> np.ndarray:
+    """Load a packaged SynthSeg label resource.
 
-subcortical_labels = np.load(join(repo_home, 'data', 'labels_classes_priors', 'synthseg_segmentation_labels.npy'))
+    :param filename: Name of the packaged .npy resource.
+
+    :return: Loaded NumPy array.
+    """
+
+    resource = files("darq.data.labels_classes_priors").joinpath(filename)
+
+    with as_file(resource) as path:
+        return np.load(path, allow_pickle=True)
+
+
+ctx_labels = _load_label_resource("synthseg_parcellation_labels.npy")
+ctx_names = _load_label_resource("synthseg_parcellation_names.npy")
+
+subcortical_labels = _load_label_resource("synthseg_segmentation_labels.npy")
 subcortical_labels = np.concatenate((subcortical_labels, [24]))
-subcortical_names = np.load(join(repo_home, 'data', 'labels_classes_priors', 'synthseg_segmentation_names.npy'))
-subcortical_names = np.concatenate((subcortical_names, ['csf']))
+
+subcortical_names = _load_label_resource("synthseg_segmentation_names.npy")
+subcortical_names = np.concatenate((subcortical_names, ["csf"]))
 
 SYNTHSEG_DICT = {k: v for k, v in zip(subcortical_labels, subcortical_names) if v.lower() != 'background'}
 SYNTHSEG_DICT_REV = {v: k for k, v in zip(subcortical_labels, subcortical_names) if v.lower() != 'background'}
