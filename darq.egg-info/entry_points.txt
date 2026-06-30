@@ -1,0 +1,2 @@
+[console_scripts]
+darq = scripts.darq_cli:main

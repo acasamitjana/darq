@@ -3,7 +3,7 @@ requires = ["setuptools>=69", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "darq-datscan"
+name = "darq"
 version = "0.1.0"
 description = "Automatic quantification pipeline of DaTSCAN images"
 readme = "README.md"
@@ -20,7 +20,8 @@ dependencies = [
     "scikit-learn",
     "scipy",
     "tqdm",
-    "joblib"
+    "joblib",
+    "gradio"
 ]
 
 [project.optional-dependencies]
@@ -33,7 +34,7 @@ dev = [
 ]
 
 [project.scripts]
-darq = "scripts.dat2mri:main"
+darq = "scripts.darq_cli:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
@@ -41,6 +42,7 @@ include = ["darq*", "scripts*"]
 
 [tool.setuptools]
 include-package-data = true
+py-modules = ["app_darq"]
 
 [tool.setuptools.package-data]
 darq = ["data/labels_classes_priors/*.npy"]

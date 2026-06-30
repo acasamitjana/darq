@@ -832,6 +832,16 @@ with gr.Blocks(title=APP_TITLE, css=CUSTOM_CSS) as demo:
         show_progress="minimal",
     )
 
+def main() -> None:
+    """Lauch the Gradio app"""
 
+    server_name = os.environ.get("DARQ_SERVER_NAME", "127.0.0.1")
+    server_port = int(os.environ.get("DARQ_SERVER_PORT", "7860"))
+    demo.launch(
+        server_name=server_name,
+        server_port=server_port,
+        share=False,
+    )
+    
 if __name__ == "__main__":
-    demo.launch()
+    main()
