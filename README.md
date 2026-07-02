@@ -11,6 +11,9 @@
 <p align="center">
   <img src="https://img.shields.io/badge/python-3.11-blue" alt="Python 3.11" />
   <img src="https://img.shields.io/badge/testing-pytest-blue" alt="pytest" />
+  <a href="https://codecov.io/gh/acassamitjana/darq">
+    <img src="https://codecov.io/gh/acasamitjana/darq/branch/versio-sense-comentar/graph/badge.svg" alt="Codecov" />
+  </a>
   <img src="https://img.shields.io/badge/docs-Sphinx%20%7C%20ReadTheDocs-blue" alt="Documentation" />
   <img src="https://img.shields.io/badge/status-development-orange" alt="Development status" />
 </p>
