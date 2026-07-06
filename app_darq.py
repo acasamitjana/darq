@@ -15,13 +15,13 @@ This version follows the agreed workflow:
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Iterable
 
 import gradio as gr
 import nibabel as nib
@@ -32,6 +32,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
+from webapp.frontend.api_client import get_job_status, submit_darq_job
 
 
 ROOT_DIR = Path(__file__).resolve().parent
@@ -670,6 +671,81 @@ def _create_pdf_report(
 # Main Gradio callback
 # -----------------------------------------------------------------------------
 
+def run_darq_report_fastapi(
+    dat_file: str | None,
+    mri_file: str | None,
+    seg_file: str | None,
+    subject_id: str,
+    progress: gr.Progress = gr.Progress(track_tqdm=True),
+):
+    """
+    Send uploaded files to FastAPI and create a DARQ job.
+
+    This is the first FastAPI integration step.
+    It does not run the DARQ pipeline yet.
+    """
+    try:
+        progress(0.10, desc="Sending files to FastAPI")
+
+        job_response = submit_darq_job(
+            dat_file=dat_file,
+            mri_file=mri_file,
+            seg_file=seg_file,
+            subject_id=subject_id,
+        )
+
+        job_id = job_response["job_id"]
+
+        progress(0.60, desc="Reading job metadata")
+        job_status = get_job_status(job_id)
+
+        progress(1.0, desc="Job created")
+
+        info_df = pd.DataFrame(
+            [
+                {
+                    "field": "job_id",
+                    "value": job_id,
+                },
+                {
+                    "field": "status",
+                    "value": job_status.get("status"),
+                },
+                {
+                    "field": "pipeline",
+                    "value": job_status.get("pipeline"),
+                },
+                {
+                    "field": "created_at",
+                    "value": job_status.get("created_at"),
+                },
+            ]
+        )
+
+        raw_json = json.dumps(job_status, indent=2)
+
+        # IMPORTANT:
+        # The current Gradio interface expects 4 outputs:
+        # 1. sbr_output DataFrame
+        # 2. symm_output DataFrame
+        # 3. overlay_output Gallery
+        # 4. pdf_output File
+        #
+        # For this temporary FastAPI test:
+        # - we show the job info in the first table
+        # - we show the raw JSON split into lines in the second table
+        # - we return no images
+        # - we return no PDF
+        return (
+            info_df,
+            pd.DataFrame({"FastAPI job metadata": raw_json.splitlines()}),
+            [],
+            None,
+        )
+
+    except Exception as exc:
+        raise gr.Error(f"FastAPI connection failed:\n\n{exc}")
+    
 def run_darq_report(
     dat_file: str | None,
     mri_file: str | None,
@@ -816,7 +892,7 @@ with gr.Blocks(title=APP_TITLE, css=CUSTOM_CSS) as demo:
         pdf_output = gr.File(label="Download DARQ PDF report")
 
     run_button.click(
-        fn=run_darq_report,
+        fn=run_darq_report_fastapi,  # Change to run_darq_report for local execution
         inputs=[
             dat_input,
             mri_input,
