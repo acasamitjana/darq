@@ -3,10 +3,11 @@ from __future__ import annotations
 import json
 import shutil
 import uuid
+import re as regex
 from datetime import datetime
 from pathlib import Path
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, HTTPException, UploadFile, Form
 
 
 app = FastAPI(
@@ -26,6 +27,25 @@ def health() -> dict:
         "service": "DARQ API",
     }
 
+def sanitize_job_text(text: str) -> str:
+    """Convert user text into a safe folder name."""
+    text = text.strip().lower()
+    text = regex.sub(r"[^a-zA-Z0-9_-]+", "_", text)
+    text = text.strip("_")
+
+    if not text:
+        return "subject"
+
+    return text
+
+
+def create_job_id(subject_id: str) -> str:
+    """Create a readable and unique job ID."""
+    safe_subject = sanitize_job_text(subject_id)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    short_uuid = uuid.uuid4().hex[:6]
+
+    return f"{safe_subject}_{timestamp}_{short_uuid}"
 
 def now_iso() -> str:
     """Return current time as text."""
@@ -57,6 +77,7 @@ def create_job(
     dat_file: UploadFile = File(...),
     mri_file: UploadFile = File(...),
     seg_file: UploadFile = File(...),
+    subject_id: str = Form("subject"),
 ) -> dict:
     """
     Create a new DARQ job.
@@ -64,7 +85,7 @@ def create_job(
     For now, this only saves the uploaded files.
     It does not run the pipeline yet.
     """
-    job_id = str(uuid.uuid4())
+    job_id = create_job_id(subject_id)
 
     job_dir = JOBS_DIR / job_id
     input_dir = job_dir / "input"
