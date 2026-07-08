@@ -3,7 +3,7 @@
 Place this file at the root of the repository, next to the `darq/`, `data/`,
 and `scripts/` folders. Then run:
 
-    py app_darq_volbrain.py
+    py app_darq.py
 
 This version follows the agreed workflow:
 - uploads DaTSCAN, MRI/T1w and SynthSeg files;
@@ -15,13 +15,15 @@ This version follows the agreed workflow:
 
 from __future__ import annotations
 
-import json
+
 import os
 import shutil
 import subprocess
 import sys
+import time
 from datetime import datetime
 from pathlib import Path
+from typing import Iterable
 
 import gradio as gr
 import nibabel as nib
@@ -679,13 +681,13 @@ def run_darq_report_fastapi(
     progress: gr.Progress = gr.Progress(track_tqdm=True),
 ):
     """
-    Send uploaded files to FastAPI and create a DARQ job.
+    Send uploaded files to FastAPI and wait until the dummy worker finishes.
 
-    This is the first FastAPI integration step.
-    It does not run the DARQ pipeline yet.
+    Current flow:
+    Gradio -> FastAPI -> job queued -> worker dummy -> completed.
     """
     try:
-        progress(0.10, desc="Sending files to FastAPI")
+        progress(0.05, desc="Sending files to FastAPI")
 
         job_response = submit_darq_job(
             dat_file=dat_file,
@@ -696,55 +698,93 @@ def run_darq_report_fastapi(
 
         job_id = job_response["job_id"]
 
-        progress(0.60, desc="Reading job metadata")
-        job_status = get_job_status(job_id)
+        max_wait_seconds = 1800
+        poll_interval_seconds = 2
+        elapsed_seconds = 0
 
-        progress(1.0, desc="Job created")
+        final_job_status = None
+
+        while elapsed_seconds <= max_wait_seconds:
+            job_status = get_job_status(job_id)
+            final_job_status = job_status
+
+            status = job_status.get("status", "unknown")
+
+            if status == "queued":
+                progress(0.25, desc=f"Job {job_id} is queued")
+
+            elif status == "running":
+                progress(0.60, desc=f"Job {job_id} is running")
+
+            elif status == "completed":
+                progress(1.0, desc=f"Job {job_id} completed")
+                break
+
+            elif status == "failed":
+                error_message = job_status.get("error", "Unknown error")
+                raise gr.Error(f"Job failed:\n\n{error_message}")
+
+            else:
+                progress(0.40, desc=f"Job {job_id} status: {status}")
+
+            time.sleep(poll_interval_seconds)
+            elapsed_seconds += poll_interval_seconds
+
+        if final_job_status is None:
+            raise gr.Error("No job status was received from FastAPI.")
+
+        if final_job_status.get("status") != "completed":
+            raise gr.Error(
+                f"Job did not finish after {max_wait_seconds} seconds. "
+                f"Last status: {final_job_status.get('status')}"
+            )
+
+        output_text = "No dummy result found yet."
+
+        dummy_output_relative = final_job_status.get("outputs", {}).get("dummy_result")
+
+        if dummy_output_relative:
+            dummy_output_path = (
+                ROOT_DIR
+                / "webapp"
+                / "jobs"
+                / job_id
+                / dummy_output_relative
+            )
+
+            if dummy_output_path.exists():
+                output_text = dummy_output_path.read_text(encoding="utf-8")
 
         info_df = pd.DataFrame(
             [
-                {
-                    "field": "job_id",
-                    "value": job_id,
-                },
-                {
-                    "field": "status",
-                    "value": job_status.get("status"),
-                },
-                {
-                    "field": "pipeline",
-                    "value": job_status.get("pipeline"),
-                },
-                {
-                    "field": "created_at",
-                    "value": job_status.get("created_at"),
-                },
+                {"field": "job_id", "value": job_id},
+                {"field": "subject_id", "value": final_job_status.get("subject_id")},
+                {"field": "status", "value": final_job_status.get("status")},
+                {"field": "pipeline", "value": final_job_status.get("pipeline")},
+                {"field": "created_at", "value": final_job_status.get("created_at")},
+                {"field": "started_at", "value": final_job_status.get("started_at")},
+                {"field": "finished_at", "value": final_job_status.get("finished_at")},
             ]
         )
 
-        raw_json = json.dumps(job_status, indent=2)
+        result_df = pd.DataFrame(
+            {
+                "Dummy worker result": output_text.splitlines()
+            }
+        )
 
-        # IMPORTANT:
-        # The current Gradio interface expects 4 outputs:
-        # 1. sbr_output DataFrame
-        # 2. symm_output DataFrame
-        # 3. overlay_output Gallery
-        # 4. pdf_output File
-        #
-        # For this temporary FastAPI test:
-        # - we show the job info in the first table
-        # - we show the raw JSON split into lines in the second table
-        # - we return no images
-        # - we return no PDF
         return (
             info_df,
-            pd.DataFrame({"FastAPI job metadata": raw_json.splitlines()}),
+            result_df,
             [],
             None,
         )
 
+    except gr.Error:
+        raise
+
     except Exception as exc:
-        raise gr.Error(f"FastAPI connection failed:\n\n{exc}")
+        raise gr.Error(f"FastAPI job monitoring failed:\n\n{exc}")
     
 def run_darq_report(
     dat_file: str | None,
