@@ -1,0 +1,78 @@
+services:
+  api:
+    build: .
+    entrypoint: []
+    command:
+      - python
+      - -m
+      - uvicorn
+      - webapp.api.main:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./webapp/jobs:/app/webapp/jobs
+    environment:
+      DARQ_JOBS_DIR: /app/webapp/jobs
+      PYTHONUNBUFFERED: "1"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health')"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    init: true
+    restart: unless-stopped
+
+  worker:
+    build: .
+    entrypoint: []
+    command:
+      - python
+      - -m
+      - webapp.worker.darq_worker
+    volumes:
+      - ./webapp/jobs:/app/webapp/jobs
+    environment:
+      DARQ_JOBS_DIR: /app/webapp/jobs
+      PYTHONUNBUFFERED: "1"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    init: true
+    restart: unless-stopped
+
+  frontend:
+    build: .
+    entrypoint: []
+    command:
+      - darq
+      - app
+    ports:
+      - "7860:7860"
+    volumes:
+      - ./webapp/jobs:/app/webapp/jobs
+    environment:
+      DARQ_SERVER_NAME: 0.0.0.0
+      DARQ_SERVER_PORT: "7860"
+      DARQ_API_URL: http://api:8000
+      DARQ_JOBS_DIR: /app/webapp/jobs
+      PYTHONUNBUFFERED: "1"
+    depends_on:
+      api:
+        condition: service_healthy
+      worker:
+        condition: service_started
+    init: true
+    restart: unless-stopped
