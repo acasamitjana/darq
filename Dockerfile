@@ -9,12 +9,14 @@ WORKDIR /app
 
 RUN python -m pip install --upgrade pip
 
-# Install CPU version of PyTorch first.
-RUN python -m pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch
+# Install PyTorch with CUDA 12.8 support.
+RUN python -m pip install --no-cache-dir \
+    --index-url https://download.pytorch.org/whl/cu128 \
+    torch
 
 COPY . /app
 
-# Install DARQ as a normal package inside the container.
+# Install DARQ and the remaining project dependencies.
 RUN python -m pip install --no-cache-dir .
 
 CMD ["darq", "--help"]
