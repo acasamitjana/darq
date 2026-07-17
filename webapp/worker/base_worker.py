@@ -5,6 +5,7 @@ import subprocess
 import time
 from abc import ABC, abstractmethod
 from pathlib import Path
+from typing import Any
 
 from webapp.common.job_storage import (
     append_log,
@@ -45,7 +46,11 @@ class BaseWorker(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def build_pipeline_command(self, job_dir: Path) -> list[str]:
+    def build_pipeline_command(
+        self,
+        job_dir: Path,
+        execution_resources: Any = None,
+    ) -> list[str]:
         """Build the command used to execute the concrete pipeline."""
 
         raise NotImplementedError
@@ -142,75 +147,109 @@ class BaseWorker(ABC):
 
         mark_running(meta_path)
 
-        command = self.build_pipeline_command(job_dir)
+        execution_resources = None
 
-        append_log(job_dir, "Status changed to running.")
-        append_log(
-            job_dir,
-            f"Running {self.pipeline_name} pipeline.",
-        )
-        append_log(
-            job_dir,
-            "Command: " + " ".join(command),
-        )
-
-        completed = subprocess.run(
-            command,
-            cwd=self.root_dir,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-
-        self.write_pipeline_log(
-            job_dir,
-            command,
-            completed,
-        )
-
-        if completed.returncode != 0:
-            error_message = (
-                f"{self.pipeline_name.upper()} pipeline failed. "
-                "Check logs/pipeline.log for details."
+        try:
+            execution_resources = self.acquire_execution_resources(
+                job_dir
             )
 
-            mark_failed(
-                meta_path,
-                error_message,
+            command = self.build_pipeline_command(
+                job_dir,
+                execution_resources=execution_resources,
+            )
+
+            append_log(job_dir, "Status changed to running.")
+
+            append_log(
+                job_dir,
+                f"Running {self.pipeline_name} pipeline.",
             )
 
             append_log(
                 job_dir,
-                f"Job failed: {error_message}",
+                "Command: " + " ".join(command),
+            )
+
+            completed = subprocess.run(
+                command,
+                cwd=self.root_dir,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+            self.write_pipeline_log(
+                job_dir,
+                command,
+                completed,
+            )
+
+            if completed.returncode != 0:
+                error_message = (
+                    f"{self.pipeline_name.upper()} pipeline failed. "
+                    "Check logs/pipeline.log for details."
+                )
+
+                mark_failed(
+                    meta_path,
+                    error_message,
+                )
+
+                append_log(
+                    job_dir,
+                    f"Job failed: {error_message}",
+                )
+
+                print(
+                    f"[{self.pipeline_name} worker] "
+                    f"Failed job: {job_id}"
+                )
+
+                return
+
+            outputs = self.collect_output_files(job_dir)
+
+            mark_completed(
+                meta_path,
+                outputs,
+            )
+
+            append_log(
+                job_dir,
+                "Pipeline finished successfully.",
+            )
+
+            append_log(
+                job_dir,
+                "Status changed to completed.",
             )
 
             print(
                 f"[{self.pipeline_name} worker] "
-                f"Failed job: {job_id}"
+                f"Completed job: {job_id}"
             )
-            return
 
-        outputs = self.collect_output_files(job_dir)
+        finally:
+            try:
+                self.release_execution_resources(
+                    job_dir,
+                    execution_resources,
+                )
 
-        mark_completed(
-            meta_path,
-            outputs,
-        )
+            except Exception as exc:
+                append_log(
+                    job_dir,
+                    (
+                        "Could not release execution resources: "
+                        f"{type(exc).__name__}: {exc}"
+                    ),
+                )
 
-        append_log(
-            job_dir,
-            "Pipeline finished successfully.",
-        )
-        append_log(
-            job_dir,
-            "Status changed to completed.",
-        )
-
-        print(
-            f"[{self.pipeline_name} worker] "
-            f"Completed job: {job_id}"
-        )
-
+                print(
+                    f"[{self.pipeline_name} worker] "
+                    f"Resource release failed for {job_id}: {exc}"
+                )
     def run(self) -> None:
         """Continuously search for and process queued jobs."""
 

@@ -252,6 +252,7 @@ def process_subject(data_dict: dict, preproc_tf: dict, dat_tf: list,
         tag=run_info["tag"],
         loss=tensor_dict["loss"],
         force_flag=args.force,
+        device=run_info["device"],
     )
 
     _clean_temp_dir(run_info["temp_dir"])
@@ -555,7 +556,8 @@ def _save_subject_outputs(data_dict: dict,
                           output_dir: str,
                           tag: str,
                           loss: float,
-                          force_flag: bool = False) -> None:
+                          force_flag: bool = False,
+                          device: str = "cpu") -> None:
     """Save affine matrix, registered outputs and quantitative results."""
     tensor_dict = ToNumpy(
         keys=["ref_image", "flo_image", "reg_image"],
@@ -578,6 +580,7 @@ def _save_subject_outputs(data_dict: dict,
         tag=data_dict["id"],
         results_dir=output_dir,
         force_flag=force_flag,
+        device=device,
     )
 
 

@@ -40,9 +40,20 @@ services:
       - webapp.worker.darq_worker
     volumes:
       - ./webapp/jobs:/app/webapp/jobs
+      - ./webapp/gpu_state:/app/webapp/gpu_state
     environment:
       DARQ_JOBS_DIR: /app/webapp/jobs
+
+      GPU_STATE_DIR: /app/webapp/gpu_state
+      GPU_RESERVATION_TTL_SECONDS: "21600"
+      GPU_LOCK_TIMEOUT_SECONDS: "10"
+
+      DARQ_GPU_REQUIRED_GIB: "6.0"
+      DARQ_GPU_SAFETY_GIB: "1.0"
+      DARQ_GPU_INDEX: "0"
+      
       PYTHONUNBUFFERED: "1"
+
     deploy:
       resources:
         reservations:
