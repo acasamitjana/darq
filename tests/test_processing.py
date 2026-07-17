@@ -493,14 +493,14 @@ def test_save_subject_outputs_saves_affine_and_calls_results(monkeypatch, tmp_pa
             tensor_dict["to_numpy_called"] = True
             return tensor_dict
 
-    def fake_save_session_results(dat, label, loss, tag, results_dir, force_flag=False):
+    def fake_save_session_results(dat, label, loss, tag, results_dir, force_flag=False, device="cpu"):
         calls["dat"] = dat
         calls["label"] = label
         calls["loss"] = loss
         calls["tag"] = tag
         calls["results_dir"] = results_dir
         calls["force_flag"] = force_flag
-
+        calls["device"] = device
     monkeypatch.setattr(processing, "ToNumpy", FakeToNumpy)
     monkeypatch.setattr(processing, "save_session_results", fake_save_session_results)
 
@@ -536,6 +536,7 @@ def test_save_subject_outputs_saves_affine_and_calls_results(monkeypatch, tmp_pa
     assert calls["tag"] == "sub-001"
     assert calls["results_dir"] == str(tmp_path)
     assert calls["force_flag"] is True
+    assert calls["device"] == "cpu"
 
 
 def test_clean_temp_dir_removes_directory(tmp_path):
@@ -686,7 +687,7 @@ def test_process_subject_orchestrates_all_steps(monkeypatch, tmp_path):
         return {"loss": 0.25, "affine_ras": torch.eye(4).unsqueeze(0)}
 
     def fake_save_subject_outputs(data_dict, tensor_dict, output_dir, tag,
-                                  loss, force_flag=False):
+                                  loss, force_flag=False, device="cpu"):
         calls.append("save")
         assert loss == 0.25
         assert force_flag is True

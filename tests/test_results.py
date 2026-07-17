@@ -266,7 +266,7 @@ def test_write_symmetry_tsv_creates_expected_file_with_mocked_maps(tmp_path, mon
     for mask_dict in (mask_cau, mask_put):
         mask_dict["Both"] = mask_dict["R"] | mask_dict["L"]
 
-    def fake_compute_symmetry_maps(dat_norm, v2r_symm):
+    def fake_compute_symmetry_maps(dat_norm, v2r_symm, device="cpu"):
         symm_map = np.ones(shape, dtype=float)
         l2_map = np.ones(shape, dtype=float) * 2
         return symm_map, l2_map
@@ -404,6 +404,7 @@ def test_save_session_results_with_synthetic_data_writes_outputs(tmp_path, monke
         dat_fov,
         results_dir,
         tag,
+        device="cpu",
         force_flag=False,
     ):
         pd.DataFrame(
@@ -503,7 +504,7 @@ def test_write_symmetry_tsv_force_replaces_previous_rows(tmp_path, monkeypatch):
     for mask_dict in (mask_cau, mask_put):
         mask_dict["Both"] = mask_dict["R"] | mask_dict["L"]
 
-    def fake_compute_symmetry_maps(dat_norm, v2r_symm):
+    def fake_compute_symmetry_maps(dat_norm, v2r_symm, device="cpu"):
         symm_map = np.ones(shape, dtype=float)
         l2_map = np.ones(shape, dtype=float) * 2
         return symm_map, l2_map
