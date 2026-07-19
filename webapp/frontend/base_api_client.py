@@ -66,7 +66,7 @@ class BaseApiClient:
                 endpoint,
                 files=request_files,
                 data=data or {},
-                timeout=60,
+                timeout=120,
             )
 
         response.raise_for_status()
@@ -77,7 +77,7 @@ class BaseApiClient:
 
         response = requests.get(
             f"{self.api_url}/api/jobs/{job_id}",
-            timeout=30,
+            timeout=120,
         )
 
         response.raise_for_status()
