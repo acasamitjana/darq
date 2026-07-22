@@ -15,6 +15,38 @@ from webapp.common.job_storage import (
 from webapp.worker.base_worker import BaseWorker
 from webapp.worker.gpu_policy import DeviceDecision
 
+def _read_gpu_index() -> int | None:
+    """
+    Read the GPU selection from DARQ_GPU_INDEX.
+
+    Accepted values:
+    - auto, none or empty: automatic selection.
+    - 0, 1, 2...: strict manual selection.
+    """
+
+    value = os.getenv(
+        "DARQ_GPU_INDEX",
+        "auto",
+    ).strip().lower()
+
+    if value in {"", "auto", "none"}:
+        return None
+
+    try:
+        gpu_index = int(value)
+
+    except ValueError as exc:
+        raise ValueError(
+            "DARQ_GPU_INDEX must be 'auto' "
+            "or a non-negative integer."
+        ) from exc
+
+    if gpu_index < 0:
+        raise ValueError(
+            "DARQ_GPU_INDEX cannot be negative."
+        )
+
+    return gpu_index
 
 class DarqWorker(BaseWorker):
     """Worker responsible for executing DARQ jobs."""
@@ -78,9 +110,7 @@ class DarqWorker(BaseWorker):
             os.getenv("DARQ_GPU_SAFETY_GIB", "1.0")
         )
 
-        gpu_index = int(
-            os.getenv("DARQ_GPU_INDEX", "0")
-        )
+        gpu_index = _read_gpu_index()
 
         decision = self.gpu_manager.reserve(
             job_id=job_id,
@@ -92,7 +122,11 @@ class DarqWorker(BaseWorker):
 
         meta = read_meta(meta_path)
 
-        meta["requested_device"] = "auto"
+        meta["requested_device"] = (
+            "auto"
+            if gpu_index is None
+            else f"cuda:{gpu_index}"
+        )
         meta["execution_device"] = decision.execution_device
         meta["device_decision"] = asdict(decision)
         meta["gpu_reservation_active"] = bool(
@@ -209,10 +243,9 @@ class DarqWorker(BaseWorker):
             "--o",
             str(output_dir),
             "--force",
+            "--device",
+            execution_resources.execution_device,
         ]
-
-        if not execution_resources.use_gpu:
-            command.append("--cpu")
 
         return command
 

@@ -535,6 +535,7 @@ def _run_registration_step(tensor_dict: dict,
     session = models.JointInstanceReg(
         loss_dict,
         main_dict,
+        device=device,
         da=[],
         trainable_keys={"reg": "reg"},
         verbose=True,

@@ -9,7 +9,12 @@ from pathlib import Path
 
 import torch
 
-from webapp.worker.gpu_policy import DeviceDecision, GIB
+from dataclasses import replace
+
+from webapp.worker.gpu_policy import (
+    DeviceDecision,
+    choose_execution_device,
+)
 
 
 class AtomicDirectoryLock:
@@ -95,6 +100,38 @@ class SharedGPUManager:
         self.lock_timeout_seconds = lock_timeout_seconds
 
         self.state_dir.mkdir(parents=True, exist_ok=True)
+    
+    @staticmethod
+    def _reserved_gib_by_gpu(
+        state: dict,
+    ) -> dict[int, float]:
+        """Aggregate all active logical reservations by GPU."""
+
+        totals: dict[int, float] = {}
+
+        for reservation in state["reservations"].values():
+            gpu_index = reservation.get("gpu_index")
+
+            if gpu_index is None:
+                continue
+
+            # Compatibility with reservations created before this change.
+            reserved_gib = reservation.get("reserved_gib")
+
+            if reserved_gib is None:
+                reserved_gib = (
+                    float(reservation.get("required_gib", 0.0))
+                    + float(reservation.get("safety_gib", 0.0))
+                )
+
+            gpu_index = int(gpu_index)
+
+            totals[gpu_index] = (
+                totals.get(gpu_index, 0.0)
+                + float(reserved_gib)
+            )
+
+        return totals
 
     def reserve(
         self,
@@ -103,9 +140,17 @@ class SharedGPUManager:
         pipeline: str,
         required_gib: float,
         safety_gib: float,
-        gpu_index: int,
+        gpu_index: int | None,
     ) -> DeviceDecision:
-        """Reserve GPU capacity atomically or return a CPU decision."""
+        """
+        Select and reserve GPU capacity atomically.
+
+        gpu_index integer:
+            Strictly reserve only that GPU.
+
+        gpu_index None:
+            Automatically inspect all visible GPUs in order.
+        """
 
         if required_gib < 0:
             raise ValueError("required_gib cannot be negative.")
@@ -113,189 +158,76 @@ class SharedGPUManager:
         if safety_gib < 0:
             raise ValueError("safety_gib cannot be negative.")
 
-        if not torch.cuda.is_available():
-            return DeviceDecision(
-                execution_device="cpu",
-                cuda_available=False,
-                gpu_index=None,
-                gpu_name=None,
-                free_gib=None,
-                total_gib=None,
-                required_gib=required_gib,
-                safety_gib=safety_gib,
-                reason="CUDA is not available inside the worker container.",
-            )
-
-        device_count = torch.cuda.device_count()
-
-        if gpu_index < 0 or gpu_index >= device_count:
-            return DeviceDecision(
-                execution_device="cpu",
-                cuda_available=True,
-                gpu_index=None,
-                gpu_name=None,
-                free_gib=None,
-                total_gib=None,
-                required_gib=required_gib,
-                safety_gib=safety_gib,
-                reason=(
-                    f"GPU index {gpu_index} does not exist. "
-                    f"Available GPUs: {device_count}."
-                ),
-            )
-
         lock = AtomicDirectoryLock(
             self.lock_dir,
             timeout_seconds=self.lock_timeout_seconds,
         )
 
+        # Selection and reservation must occur while holding
+        # the same lock.
         with lock:
             state = self._read_state()
-            state_changed = self._remove_expired_reservations(state)
+
+            state_changed = self._remove_expired_reservations(
+                state
+            )
+
+            reserved_gib_by_gpu = self._reserved_gib_by_gpu(
+                state
+            )
 
             try:
-                free_bytes, total_bytes = torch.cuda.mem_get_info(
-                    gpu_index
+                decision = choose_execution_device(
+                    required_gib=required_gib,
+                    safety_gib=safety_gib,
+                    gpu_index=gpu_index,
+                    reserved_gib_by_gpu=reserved_gib_by_gpu,
                 )
-                gpu_name = torch.cuda.get_device_name(gpu_index)
 
-            except RuntimeError as exc:
+            except Exception:
+                # Persist cleanup of expired reservations even when
+                # strict manual selection fails.
                 if state_changed:
                     self._write_state(state)
 
-                return DeviceDecision(
-                    execution_device="cpu",
-                    cuda_available=True,
-                    gpu_index=gpu_index,
-                    gpu_name=None,
-                    free_gib=None,
-                    total_gib=None,
-                    required_gib=required_gib,
-                    safety_gib=safety_gib,
-                    reason=f"GPU memory could not be inspected: {exc}",
-                )
+                raise
 
-            free_gib = free_bytes / GIB
-            total_gib = total_bytes / GIB
-
-            active_reservations = [
-                reservation
-                for reservation in state["reservations"].values()
-                if reservation.get("gpu_index") == gpu_index
-            ]
-
-            reserved_gib_before = sum(
-                float(reservation.get("required_gib", 0.0))
-                for reservation in active_reservations
-            )
-
-            # Real free VRAM, discounting the safety margin.
-            real_available_gib = max(
-                free_gib - safety_gib,
-                0.0,
-            )
-
-            # Virtual capacity not already committed to another worker.
-            reservation_budget_gib = max(
-                total_gib
-                - safety_gib
-                - reserved_gib_before,
-                0.0,
-            )
-
-            # Both conditions must be satisfied.
-            effective_available_gib = min(
-                real_available_gib,
-                reservation_budget_gib,
-            )
-
-            if required_gib > effective_available_gib:
+            # Automatic mode can legitimately choose CPU.
+            if not decision.use_gpu:
                 if state_changed:
                     self._write_state(state)
 
-                return DeviceDecision(
-                    execution_device="cpu",
-                    cuda_available=True,
-                    gpu_index=gpu_index,
-                    gpu_name=gpu_name,
-                    free_gib=round(free_gib, 3),
-                    total_gib=round(total_gib, 3),
-                    required_gib=required_gib,
-                    safety_gib=safety_gib,
-                    reason=(
-                        f"GPU reservation denied. "
-                        f"{free_gib:.2f} GiB are physically free, "
-                        f"{reserved_gib_before:.2f} GiB are already reserved "
-                        f"and only {effective_available_gib:.2f} GiB are "
-                        "available after applying the safety margin."
-                    ),
-                    reserved_gib_before=round(
-                        reserved_gib_before,
-                        3,
-                    ),
-                    real_available_gib=round(
-                        real_available_gib,
-                        3,
-                    ),
-                    reservation_budget_gib=round(
-                        reservation_budget_gib,
-                        3,
-                    ),
-                    effective_available_gib=round(
-                        effective_available_gib,
-                        3,
-                    ),
-                )
+                return decision
 
             reservation_id = uuid.uuid4().hex
+            reserved_gib = required_gib + safety_gib
 
             state["reservations"][reservation_id] = {
                 "reservation_id": reservation_id,
                 "job_id": job_id,
                 "pipeline": pipeline,
-                "gpu_index": gpu_index,
+                "gpu_index": decision.gpu_index,
+                "execution_device": decision.execution_device,
                 "required_gib": required_gib,
+                "safety_gib": safety_gib,
+                "reserved_gib": reserved_gib,
                 "created_timestamp": time.time(),
                 "worker_pid": os.getpid(),
             }
 
             self._write_state(state)
 
-            return DeviceDecision(
-                execution_device=f"cuda:{gpu_index}",
-                cuda_available=True,
-                gpu_index=gpu_index,
-                gpu_name=gpu_name,
-                free_gib=round(free_gib, 3),
-                total_gib=round(total_gib, 3),
-                required_gib=required_gib,
-                safety_gib=safety_gib,
-                reason=(
-                    f"GPU reservation granted. "
-                    f"{free_gib:.2f} GiB are physically free, "
-                    f"{reserved_gib_before:.2f} GiB were already reserved "
-                    f"and {required_gib:.2f} GiB have been reserved "
-                    f"for job {job_id}."
-                ),
+            return replace(
+                decision,
                 reservation_id=reservation_id,
-                reserved_gib_before=round(
-                    reserved_gib_before,
-                    3,
-                ),
-                real_available_gib=round(
-                    real_available_gib,
-                    3,
-                ),
-                reservation_budget_gib=round(
-                    reservation_budget_gib,
-                    3,
-                ),
-                effective_available_gib=round(
-                    effective_available_gib,
-                    3,
+                reserved_gib=round(reserved_gib, 3),
+                reason=(
+                    f"{decision.reason} "
+                    f"{reserved_gib:.2f} GiB have been logically "
+                    f"reserved for job {job_id}."
                 ),
             )
-
+    
     def release(self, reservation_id: str | None) -> bool:
         """Release a previously granted GPU reservation."""
 

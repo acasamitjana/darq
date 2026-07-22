@@ -24,7 +24,12 @@ def main() -> None:
     print('# ------------------------- #\n\n')
 
     args   = parse_args()
-    device = get_device(args.cpu)
+    device = get_device(
+    cpu_flag=args.cpu,
+    requested_device=args.device,
+)
+
+    print(f"Execution device: {device}")
 
     # ── Data ─────────────────────────────────────────────────────────────────
     if args.bids_dir is not None:

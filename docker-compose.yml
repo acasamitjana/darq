@@ -50,7 +50,7 @@ services:
 
       DARQ_GPU_REQUIRED_GIB: "6.0"
       DARQ_GPU_SAFETY_GIB: "1.0"
-      DARQ_GPU_INDEX: "0"
+      DARQ_GPU_INDEX: "auto"
       
       PYTHONUNBUFFERED: "1"
 

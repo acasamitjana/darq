@@ -250,6 +250,7 @@ class BaseWorker(ABC):
                     f"[{self.pipeline_name} worker] "
                     f"Resource release failed for {job_id}: {exc}"
                 )
+                
     def run(self) -> None:
         """Continuously search for and process queued jobs."""
 
