@@ -429,18 +429,31 @@ def test_run_registration_step_uses_model_optimizer_loss_and_session(monkeypatch
             return self
 
     class FakeSession:
-        def __init__(self, loss_dict, main_dict, da, trainable_keys, verbose):
+        def __init__(
+            self,
+            loss_dict,
+            main_dict,
+            device,
+            da,
+            trainable_keys,
+            verbose,
+        ):
             calls["loss_dict"] = loss_dict
             calls["main_dict"] = main_dict
+            calls["device"] = device
             calls["trainable_keys"] = trainable_keys
             calls["verbose"] = verbose
 
-        def register(self, tensor_dict, model_dict, optimizer_dict):
+        def register(
+            self,
+            tensor_dict,
+            model_dict,
+            optimizer_dict,
+        ):
             tensor_dict["loss"] = 1.23
             tensor_dict["registered"] = True
             calls["optimizer_dict"] = optimizer_dict
             return tensor_dict
-
     monkeypatch.setattr(processing.models, "InstanceRigidModelClassic", FakeRigidModel)
     monkeypatch.setattr(processing.models, "JointInstanceReg", FakeSession)
     monkeypatch.setattr(processing, "_build_optimizer", lambda model, opt_str: "optimizer")
@@ -479,6 +492,7 @@ def test_run_registration_step_uses_model_optimizer_loss_and_session(monkeypatch
     assert calls["model_kwargs"]["device"] == "cpu"
     assert calls["optimizer_dict"]["reg"] == "optimizer"
     assert calls["trainable_keys"] == {"reg": "reg"}
+    assert calls["device"] == "cpu"
 
 
 def test_save_subject_outputs_saves_affine_and_calls_results(monkeypatch, tmp_path):
