@@ -35,7 +35,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 
 
 ROOT_DIR = Path(__file__).resolve().parent
-RUNS_DIR = ROOT_DIR / "gradio_runs"
+RUNS_DIR = ROOT_DIR / "data/gradio_runs"
 APP_TITLE = "DARQ - DaTSCAN Quantification Report"
 
 # Fixed execution options for the demo app.
