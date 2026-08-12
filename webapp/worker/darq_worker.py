@@ -11,9 +11,34 @@ from webapp.common.job_storage import (
     append_log,
     read_meta,
     write_meta,
+    update_progress,
 )
 from webapp.worker.base_worker import BaseWorker
 from webapp.worker.gpu_policy import DeviceDecision
+
+DARQ_TOTAL_STEPS = 5
+
+DARQ_PROGRESS_MARKERS = {
+    "* Preprocessing.": (
+        2,
+        "Preprocessing",
+    ),
+
+    "* DaT symmetry and mask.": (
+        3,
+        "DaT symmetry and mask",
+    ),
+
+    "* MRI DaT simulation and mask.": (
+        4,
+        "Preparing MRI-DaT registration",
+    ),
+
+    "* MRI-DaT registration.": (
+        5,
+        "MRI-DaT registration",
+    ),
+}
 
 def _read_gpu_index() -> int | None:
     """
@@ -98,6 +123,13 @@ class DarqWorker(BaseWorker):
         """Reserve GPU capacity or choose CPU."""
 
         meta_path = job_dir / "meta.json"
+
+        update_progress(
+        meta_path,
+        step=1,
+        total_steps=DARQ_TOTAL_STEPS,
+        message="Preparing data",
+)
         meta = read_meta(meta_path)
 
         job_id = meta.get("job_id", job_dir.name)
@@ -233,6 +265,7 @@ class DarqWorker(BaseWorker):
 
         command = [
             sys.executable,
+            "-u",
             str(pipeline_script),
             "--dat",
             str(dat_path),
@@ -287,6 +320,33 @@ class DarqWorker(BaseWorker):
 
         return outputs
 
+    def on_pipeline_output(
+        self,
+        job_dir: Path,
+        line: str,
+    ) -> None:
+        """Update DARQ progress from pipeline console messages."""
+
+        for marker, (step, message) in DARQ_PROGRESS_MARKERS.items():
+
+            if marker not in line:
+                continue
+
+            meta_path = job_dir / "meta.json"
+
+            update_progress(
+                meta_path,
+                step=step,
+                total_steps=DARQ_TOTAL_STEPS,
+                message=message,
+            )
+
+            append_log(
+                job_dir,
+                f"Progress {step}/{DARQ_TOTAL_STEPS}: {message}",
+            )
+
+            break
 
 def main() -> None:
     """Start the DARQ worker."""

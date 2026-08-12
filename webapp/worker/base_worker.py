@@ -15,7 +15,6 @@ from webapp.common.job_storage import (
     read_meta,
 )
 
-
 class BaseWorker(ABC):
     """Base worker containing the common job-processing logic.
 
@@ -171,12 +170,40 @@ class BaseWorker(ABC):
                 "Command: " + " ".join(command),
             )
 
-            completed = subprocess.run(
+            process = subprocess.Popen(
                 command,
                 cwd=self.root_dir,
-                capture_output=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
                 text=True,
-                check=False,
+                bufsize=1,
+            )
+
+            stdout_lines = []
+
+            if process.stdout is not None:
+
+                for line in process.stdout:
+
+                    stdout_lines.append(line)
+
+                    print(
+                        line,
+                        end="",
+                    )
+
+                    self.on_pipeline_output(
+                        job_dir,
+                        line,
+                    )
+
+            return_code = process.wait()
+
+            completed = subprocess.CompletedProcess(
+                args=command,
+                returncode=return_code,
+                stdout="".join(stdout_lines),
+                stderr="",
             )
 
             self.write_pipeline_log(
@@ -250,6 +277,15 @@ class BaseWorker(ABC):
                     f"[{self.pipeline_name} worker] "
                     f"Resource release failed for {job_id}: {exc}"
                 )
+
+    def on_pipeline_output(
+        self,
+        job_dir: Path,
+        line: str,
+        ) -> None:
+        """Handle one line produced by the running pipeline."""
+
+        pass
                 
     def run(self) -> None:
         """Continuously search for and process queued jobs."""

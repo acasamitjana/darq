@@ -757,6 +757,99 @@ def _load_real_job_results(
         str(pdf_path) if pdf_path else None,
     )
 
+def _build_status_html(
+    status: str,
+    step: int = 0,
+    total_steps: int = 5,
+    message: str = "",
+    waiting_stage: str = "",
+) -> str:
+    """Create the visual DARQ execution status box."""
+
+    if status == "waiting":
+
+        if waiting_stage == "uploading":
+            waiting_label = "Uploading files"
+
+        elif waiting_stage == "queued":
+            waiting_label = "Waiting for worker"
+
+        else:
+            waiting_label = "Waiting"
+
+        return f"""
+        <div class="darq-status-box">
+            <strong>{waiting_label}</strong>
+            <div>{message}</div>
+        </div>
+        """
+
+    if status == "running":
+        completed_steps = max(step - 1, 0)
+
+        progress = (
+            completed_steps / total_steps * 100
+            if total_steps
+            else 0
+        )
+
+        return f"""
+        <div class="darq-status-box">
+            <strong>Running DARQ</strong>
+
+            <div class="darq-step">
+                Step {step} of {total_steps} — {message}
+            </div>
+
+            <div class="darq-progress-track">
+                <div
+                    class="darq-progress-fill"
+                    style="width: {progress}%;">
+                </div>
+            </div>
+
+            <div class="darq-progress-text">
+                {completed_steps} of {total_steps} steps completed
+            </div>
+        </div>
+        """
+
+    if status == "finalizing":
+        return f"""
+        <div class="darq-status-box">
+            <strong>Preparing results</strong>
+            <div>{message}</div>
+        </div>
+        """
+
+    if status == "completed":
+        return """
+        <div class="darq-status-box">
+            <strong>Completed</strong>
+
+            <div class="darq-progress-track">
+                <div
+                    class="darq-progress-fill"
+                    style="width: 100%;">
+                </div>
+            </div>
+
+            <div class="darq-progress-text">
+                All steps completed
+            </div>
+        </div>
+        """
+
+    if status == "failed":
+        return f"""
+        <div class="darq-status-box">
+            <strong>Failed</strong>
+            <div>{message}</div>
+        </div>
+        """
+
+    return ""
+
 # -----------------------------------------------------------------------------
 # Main Gradio callback
 # -----------------------------------------------------------------------------
@@ -766,17 +859,43 @@ def run_darq_report_fastapi(
     mri_file: str | None,
     seg_file: str | None,
     subject_id: str,
-    progress: gr.Progress = gr.Progress(track_tqdm=True),
 ):
     """
-    Send uploaded files to FastAPI and wait until the DARQ worker finishes.
+    Send uploaded files to FastAPI and monitor the DARQ worker.
 
-    Current flow:
-    Gradio -> FastAPI -> job queued -> DARQ worker -> completed.
+    During execution, only the status box is updated.
+    Tables, images and PDF are updated only when the job has fully completed.
     """
-    try:
-        progress(0.05, desc="Sending files to FastAPI")
 
+    try:
+        # ---------------------------------------------------------
+        # 1. WAITING - files are being sent to FastAPI
+        # ---------------------------------------------------------
+        yield (
+            _build_status_html(
+                "waiting",
+                message="Sending input files to FastAPI...",
+                waiting_stage="uploading",
+            ),
+            gr.skip(),
+            gr.skip(),
+            gr.skip(),
+            gr.skip(),
+        )
+
+        yield (
+            _build_status_html(
+                "waiting",
+                message="Files uploaded successfully.",
+                waiting_stage="queued",
+            ),
+            gr.skip(),
+            gr.skip(),
+            gr.skip(),
+            gr.skip(),
+        )
+
+        # Create the job through FastAPI
         job_response = darq_client.submit(
             dat_file=dat_file,
             mri_file=mri_file,
@@ -786,40 +905,140 @@ def run_darq_report_fastapi(
 
         job_id = job_response["job_id"]
 
-        max_wait_seconds = 1800
+        max_wait_seconds = 3600
         poll_interval_seconds = 2
         elapsed_seconds = 0
 
         final_job_status = None
 
+        # ---------------------------------------------------------
+        # 2. MONITOR THE JOB
+        # ---------------------------------------------------------
         while elapsed_seconds <= max_wait_seconds:
+
             job_status = darq_client.get_job_status(job_id)
             final_job_status = job_status
 
-            status = job_status.get("status", "unknown")
+            status = job_status.get(
+                "status",
+                "unknown",
+            )
 
+            # -----------------------------------------------------
+            # QUEUED
+            # FastAPI created the job, but the worker has not
+            # started processing it yet.
+            # -----------------------------------------------------
             if status == "queued":
-                progress(0.25, desc=f"Job {job_id} is queued")
 
+                yield (
+                    _build_status_html(
+                        "waiting",
+                        message="Files uploaded. Waiting for the DARQ worker...",
+                    ),
+                    gr.skip(),
+                    gr.skip(),
+                    gr.skip(),
+                    gr.skip(),
+                )
+
+            # -----------------------------------------------------
+            # RUNNING
+            # Read the real pipeline step written by the worker.
+            # -----------------------------------------------------
             elif status == "running":
-                progress(0.60, desc=f"Job {job_id} is running")
 
+                progress_data = job_status.get(
+                    "progress",
+                    {},
+                )
+
+                step = progress_data.get(
+                    "step",
+                    1,
+                )
+
+                total_steps = progress_data.get(
+                    "total_steps",
+                    5,
+                )
+
+                message = progress_data.get(
+                    "message",
+                    "Starting DARQ...",
+                )
+
+                yield (
+                    _build_status_html(
+                        status="running",
+                        step=step,
+                        total_steps=total_steps,
+                        message=message,
+                    ),
+                    gr.skip(),
+                    gr.skip(),
+                    gr.skip(),
+                    gr.skip(),
+                )
+
+            # -----------------------------------------------------
+            # COMPLETED
+            # DARQ has finished. Leave the loop.
+            # -----------------------------------------------------
             elif status == "completed":
-                progress(0.85, desc=f"Job {job_id} completed")
                 break
 
+            # -----------------------------------------------------
+            # FAILED
+            # -----------------------------------------------------
             elif status == "failed":
-                error_message = job_status.get("error", "Unknown error")
-                raise gr.Error(f"Job failed:\n\n{error_message}")
 
+                error_message = job_status.get(
+                    "error",
+                    "Unknown error",
+                )
+
+                yield (
+                    _build_status_html(
+                        "failed",
+                        message=error_message,
+                    ),
+                    gr.skip(),
+                    gr.skip(),
+                    gr.skip(),
+                    gr.skip(),
+                )
+
+                raise gr.Error(
+                    f"Job failed:\n\n{error_message}"
+                )
+
+            # -----------------------------------------------------
+            # UNKNOWN STATUS
+            # -----------------------------------------------------
             else:
-                progress(0.40, desc=f"Job {job_id} status: {status}")
+
+                yield (
+                    _build_status_html(
+                        "waiting",
+                        message=f"Job status: {status}",
+                    ),
+                    gr.skip(),
+                    gr.skip(),
+                    gr.skip(),
+                    gr.skip(),
+                )
 
             time.sleep(poll_interval_seconds)
             elapsed_seconds += poll_interval_seconds
 
+        # ---------------------------------------------------------
+        # 3. CHECK THAT WE RECEIVED A FINAL STATUS
+        # ---------------------------------------------------------
         if final_job_status is None:
-            raise gr.Error("No job status was received from FastAPI.")
+            raise gr.Error(
+                "No job status was received from FastAPI."
+            )
 
         if final_job_status.get("status") != "completed":
             raise gr.Error(
@@ -827,17 +1046,45 @@ def run_darq_report_fastapi(
                 f"Last status: {final_job_status.get('status')}"
             )
 
-        progress(0.90, desc="Reading real DARQ outputs")
-
-        sbr_df, symm_df, overlay_gallery, pdf_path = _load_real_job_results(
-            job_id=job_id,
-            subject_id=subject_id,
-            final_job_status=final_job_status,
+        # ---------------------------------------------------------
+        # 4. DARQ FINISHED
+        # Now Gradio prepares tables, images and PDF.
+        #
+        # IMPORTANT:
+        # Tabs 2, 3 and 4 still remain unchanged here.
+        # ---------------------------------------------------------
+        yield (
+            _build_status_html(
+                "finalizing",
+                message="Preparing tables, images and PDF report...",
+            ),
+            gr.skip(),
+            gr.skip(),
+            gr.skip(),
+            gr.skip(),
         )
 
-        progress(1.0, desc="Finished")
+        # ---------------------------------------------------------
+        # 5. LOAD THE REAL RESULTS
+        # ---------------------------------------------------------
+        sbr_df, symm_df, overlay_gallery, pdf_path = (
+            _load_real_job_results(
+                job_id=job_id,
+                subject_id=subject_id,
+                final_job_status=final_job_status,
+            )
+        )
 
-        return (
+        # ---------------------------------------------------------
+        # 6. COMPLETED
+        #
+        # This is the ONLY moment when tables, images and PDF
+        # are updated.
+        # ---------------------------------------------------------
+        yield (
+            _build_status_html(
+                "completed",
+            ),
             sbr_df,
             symm_df,
             overlay_gallery,
@@ -848,7 +1095,9 @@ def run_darq_report_fastapi(
         raise
 
     except Exception as exc:
-        raise gr.Error(f"FastAPI job monitoring failed:\n\n{exc}")
+        raise gr.Error(
+            f"FastAPI job monitoring failed:\n\n{exc}"
+        )
     
 def run_darq_report(
     dat_file: str | None,
@@ -945,72 +1194,129 @@ def run_darq_report(
 # -----------------------------------------------------------------------------
 
 CUSTOM_CSS = """
-#main-title {text-align: center; margin-bottom: 0.2rem;}
-#subtitle {text-align: center; color: #666; margin-bottom: 1.2rem;}
-.gradio-container {max-width: 1500px !important;}
+#main-title {
+    text-align: center;
+    margin-bottom: 0.35rem;
+}
+
+#subtitle {
+    text-align: center;
+    color: #666;
+    margin-bottom: 1.4rem;
+}
+
+.gradio-container {
+    max-width: 1500px !important;
+    margin: 0 auto !important;
+    padding-left: 24px !important;
+    padding-right: 24px !important;
+}
+
+.darq-status-box {
+    margin-top: 16px;
+    padding: 16px 18px;
+    border: 1px solid #d7d7d7;
+    border-radius: 8px;
+}
+
+.darq-step {
+    margin-top: 8px;
+    margin-bottom: 10px;
+}
+
+.darq-progress-track {
+    width: 100%;
+    height: 12px;
+    background: #e5e5e5;
+    border-radius: 6px;
+    overflow: hidden;
+    margin-top: 6px;
+    margin-bottom: 8px;
+}
+
+.darq-progress-fill {
+    height: 100%;
+    background: #f97316;
+    transition: width 0.3s ease;
+}
+
+.darq-progress-text {
+    font-size: 0.95rem;
+    color: #cfcfcf;
+}
 """
 
-with gr.Blocks(title=APP_TITLE, css=CUSTOM_CSS) as demo:
-    gr.Markdown(f"# {APP_TITLE}", elem_id="main-title")
-    gr.Markdown(
-        "Upload one subject, run the DARQ pipeline, inspect the complete backend tables, "
-        "review qualitative overlays and download the PDF report.",
-        elem_id="subtitle",
-    )
+with gr.Blocks(title=APP_TITLE, css=CUSTOM_CSS, fill_width=True) as demo:
+    
+    with gr.Column(elem_id="darq-main-container"):
 
-    with gr.Tab("1. Inputs"):
-        with gr.Row():
-            dat_input = gr.File(label="DaTSCAN (.nii or .nii.gz)", type="filepath")
-            mri_input = gr.File(label="MRI / T1w (.nii or .nii.gz)", type="filepath")
-            seg_input = gr.File(label="SynthSeg (.nii or .nii.gz)", type="filepath")
+        gr.Markdown(f"# {APP_TITLE}", elem_id="main-title")
 
-        subject_input = gr.Textbox(
-            value="tutorial_subject",
-            label="Subject / Case ID",
-            placeholder="Example: sub-001",
+        gr.Markdown(
+            "Upload one subject, run the DARQ pipeline, inspect the complete backend tables, "
+            "review qualitative overlays and download the PDF report.",
+            elem_id="subtitle",
         )
 
-        run_button = gr.Button("Run DARQ report", variant="primary")
+        with gr.Tab("1. Inputs"):
+            with gr.Row():
+                dat_input = gr.File(label="DaTSCAN (.nii or .nii.gz)", type="filepath")
+                mri_input = gr.File(label="MRI / T1w (.nii or .nii.gz)", type="filepath")
+                seg_input = gr.File(label="SynthSeg (.nii or .nii.gz)", type="filepath")
 
-    with gr.Tab("2. Complete result tables"):
-        sbr_output = gr.Dataframe(
-            label="Complete SBR table generated by the pipeline",
-            interactive=False,
-            wrap=True,
-        )
-        symm_output = gr.Dataframe(
-            label="Complete symmetry table generated by the pipeline",
-            interactive=False,
-            wrap=True,
-        )
+            subject_input = gr.Textbox(
+                value="tutorial_subject",
+                label="Subject / Case ID",
+                placeholder="Example: sub-001",
+            )
 
-    with gr.Tab("3. Images"):
-        overlay_output = gr.Gallery(
-            label="MRI / registered DaTSCAN / overlay views",
-            columns=1,
-            height="auto",
-            object_fit="contain",
-        )
+            run_button = gr.Button("Run DARQ", variant="primary")
 
-    with gr.Tab("4. PDF report"):
-        pdf_output = gr.File(label="Download DARQ PDF report")
+            status_output = gr.HTML(
+                value="",
+                elem_id="darq-status-output",
+            )
 
-    run_button.click(
-        fn=run_darq_report_fastapi,  # Change to run_darq_report for local execution
-        inputs=[
-            dat_input,
-            mri_input,
-            seg_input,
-            subject_input,
-        ],
-        outputs=[
-            sbr_output,
-            symm_output,
-            overlay_output,
-            pdf_output,
-        ],
-        show_progress="minimal",
-    )
+        with gr.Tab("2. Complete result tables"):
+            sbr_output = gr.Dataframe(
+                label="Complete SBR table generated by the pipeline",
+                interactive=False,
+                wrap=True,
+            )
+            symm_output = gr.Dataframe(
+                label="Complete symmetry table generated by the pipeline",
+                interactive=False,
+                wrap=True,
+            )
+
+        with gr.Tab("3. Images"):
+            overlay_output = gr.Gallery(
+                label="MRI / registered DaTSCAN / overlay views",
+                columns=1,
+                height="auto",
+                object_fit="contain",
+            )
+
+        with gr.Tab("4. PDF report"):
+            pdf_output = gr.File(label="Download DARQ PDF report")
+
+        run_button.click(
+            fn=run_darq_report_fastapi,  # Change to run_darq_report for local execution
+            inputs=[
+                dat_input,
+                mri_input,
+                seg_input,
+                subject_input,
+            ],
+            outputs=[
+                status_output,
+                sbr_output,
+                symm_output,
+                overlay_output,
+                pdf_output,
+            ],
+            show_progress="minimal",
+            )
 
 def main() -> None:
     """Lauch the Gradio app"""

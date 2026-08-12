@@ -1,0 +1,11 @@
+[2026-08-12T12:12:47] darq worker picked up the job.
+[2026-08-12T12:12:47] Selected device: cpu. CUDA is not available. CPU selected.
+[2026-08-12T12:12:47] Status changed to running.
+[2026-08-12T12:12:47] Running darq pipeline.
+[2026-08-12T12:12:47] Command: /usr/local/bin/python -u /app/scripts/dat2mri.py --dat /app/webapp/jobs/tutorial_subject_20260812_121247_f7069c/input/dat.nii.gz --mri /app/webapp/jobs/tutorial_subject_20260812_121247_f7069c/input/mri.nii.gz --seg /app/webapp/jobs/tutorial_subject_20260812_121247_f7069c/input/seg.nii.gz --o /app/webapp/jobs/tutorial_subject_20260812_121247_f7069c/output --force --device cpu
+[2026-08-12T12:13:05] Progress 2/5: Preprocessing
+[2026-08-12T12:15:25] Progress 3/5: DaT symmetry and mask
+[2026-08-12T12:16:37] Progress 4/5: Preparing MRI-DaT registration
+[2026-08-12T12:20:03] Progress 5/5: MRI-DaT registration
+[2026-08-12T12:27:59] Pipeline finished successfully.
+[2026-08-12T12:27:59] Status changed to completed.

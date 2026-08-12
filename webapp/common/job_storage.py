@@ -62,6 +62,12 @@ def create_meta(
         "inputs": inputs,
         "outputs": {},
         "error": None,
+            "progress": {
+        "step": 0,
+        "total_steps": 0,
+        "message": "Waiting",
+        "updated_at": now_iso(),
+        },
     }
 
     if extra:
@@ -69,6 +75,27 @@ def create_meta(
 
     return meta
 
+def update_progress(
+    meta_path: Path,
+    *,
+    step: int,
+    total_steps: int,
+    message: str,
+) -> dict[str, Any]:
+    """Update the current processing step of one job."""
+
+    meta = read_meta(meta_path)
+
+    meta["progress"] = {
+        "step": step,
+        "total_steps": total_steps,
+        "message": message,
+        "updated_at": now_iso(),
+    }
+
+    write_meta(meta_path, meta)
+
+    return meta
 
 def mark_running(meta_path: Path) -> dict[str, Any]:
     """Mark one job as running and persist the updated metadata."""
