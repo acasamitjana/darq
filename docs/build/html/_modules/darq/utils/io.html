@@ -39,7 +39,15 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../usage.html">Using DARQ</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../deployment.html">Deployment and Remote Access</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../architecture.html">System Architecture</a></li>
+</ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../api/modules.html">darq</a></li>
 </ul>
@@ -70,9 +78,9 @@
              
   <h1>Source code for darq.utils.io</h1><div class="highlight"><pre>
 <span></span><span class="sd">&quot;&quot;&quot;Save per-session registration outputs and compute SBR / symmetry metrics.&quot;&quot;&quot;</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">os</span><span class="w"> </span><span class="kn">import</span> <span class="n">makedirs</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">os.path</span><span class="w"> </span><span class="kn">import</span> <span class="n">join</span><span class="p">,</span> <span class="n">exists</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">importlib.resources</span><span class="w"> </span><span class="kn">import</span> <span class="n">files</span><span class="p">,</span> <span class="n">as_file</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
@@ -303,14 +311,28 @@
 
 
 <span class="c1"># ── Labels ─────────────────────────────────────────────────────────────────</span>
-<span class="n">repo_home</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;PYTHONPATH&#39;</span><span class="p">)</span>
-<span class="n">ctx_labels</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">join</span><span class="p">(</span><span class="n">repo_home</span><span class="p">,</span> <span class="s1">&#39;data&#39;</span><span class="p">,</span> <span class="s1">&#39;labels_classes_priors&#39;</span><span class="p">,</span> <span class="s1">&#39;synthseg_parcellation_labels.npy&#39;</span><span class="p">))</span>
-<span class="n">ctx_names</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">join</span><span class="p">(</span><span class="n">repo_home</span><span class="p">,</span> <span class="s1">&#39;data&#39;</span><span class="p">,</span> <span class="s1">&#39;labels_classes_priors&#39;</span><span class="p">,</span> <span class="s1">&#39;synthseg_parcellation_names.npy&#39;</span><span class="p">))</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_load_label_resource</span><span class="p">(</span><span class="n">filename</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Load a packaged SynthSeg label resource.</span>
 
-<span class="n">subcortical_labels</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">join</span><span class="p">(</span><span class="n">repo_home</span><span class="p">,</span> <span class="s1">&#39;data&#39;</span><span class="p">,</span> <span class="s1">&#39;labels_classes_priors&#39;</span><span class="p">,</span> <span class="s1">&#39;synthseg_segmentation_labels.npy&#39;</span><span class="p">))</span>
+<span class="sd">    :param filename: Name of the packaged .npy resource.</span>
+
+<span class="sd">    :return: Loaded NumPy array.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">resource</span> <span class="o">=</span> <span class="n">files</span><span class="p">(</span><span class="s2">&quot;darq.data.labels_classes_priors&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
+
+    <span class="k">with</span> <span class="n">as_file</span><span class="p">(</span><span class="n">resource</span><span class="p">)</span> <span class="k">as</span> <span class="n">path</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">allow_pickle</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+
+<span class="n">ctx_labels</span> <span class="o">=</span> <span class="n">_load_label_resource</span><span class="p">(</span><span class="s2">&quot;synthseg_parcellation_labels.npy&quot;</span><span class="p">)</span>
+<span class="n">ctx_names</span> <span class="o">=</span> <span class="n">_load_label_resource</span><span class="p">(</span><span class="s2">&quot;synthseg_parcellation_names.npy&quot;</span><span class="p">)</span>
+
+<span class="n">subcortical_labels</span> <span class="o">=</span> <span class="n">_load_label_resource</span><span class="p">(</span><span class="s2">&quot;synthseg_segmentation_labels.npy&quot;</span><span class="p">)</span>
 <span class="n">subcortical_labels</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="n">subcortical_labels</span><span class="p">,</span> <span class="p">[</span><span class="mi">24</span><span class="p">]))</span>
-<span class="n">subcortical_names</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">join</span><span class="p">(</span><span class="n">repo_home</span><span class="p">,</span> <span class="s1">&#39;data&#39;</span><span class="p">,</span> <span class="s1">&#39;labels_classes_priors&#39;</span><span class="p">,</span> <span class="s1">&#39;synthseg_segmentation_names.npy&#39;</span><span class="p">))</span>
-<span class="n">subcortical_names</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="n">subcortical_names</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;csf&#39;</span><span class="p">]))</span>
+
+<span class="n">subcortical_names</span> <span class="o">=</span> <span class="n">_load_label_resource</span><span class="p">(</span><span class="s2">&quot;synthseg_segmentation_names.npy&quot;</span><span class="p">)</span>
+<span class="n">subcortical_names</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="n">subcortical_names</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;csf&quot;</span><span class="p">]))</span>
 
 <span class="n">SYNTHSEG_DICT</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">subcortical_labels</span><span class="p">,</span> <span class="n">subcortical_names</span><span class="p">)</span> <span class="k">if</span> <span class="n">v</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">!=</span> <span class="s1">&#39;background&#39;</span><span class="p">}</span>
 <span class="n">SYNTHSEG_DICT_REV</span> <span class="o">=</span> <span class="p">{</span><span class="n">v</span><span class="p">:</span> <span class="n">k</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">subcortical_labels</span><span class="p">,</span> <span class="n">subcortical_names</span><span class="p">)</span> <span class="k">if</span> <span class="n">v</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">!=</span> <span class="s1">&#39;background&#39;</span><span class="p">}</span>

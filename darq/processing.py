@@ -6,7 +6,7 @@ from os.path import join, exists
 import shutil
 import numpy as np
 import torch
-from skimage.morphology import binary_dilation, binary_opening, ball
+from skimage.morphology import dilation, opening, ball
 from sklearn.cluster import KMeans
 from sklearn.mixture import GaussianMixture as GMM
 from skimage import measure
@@ -73,7 +73,7 @@ def _get_dat_mask(dat_image: np.ndarray, v2r: np.ndarray) -> np.ndarray:
             break
 
     mask = (seg == np.unique(seg)[ordered[-1]]) & (img > 0)
-    mask = binary_opening(mask, ball(3))
+    mask = opening(mask, ball(3))
     blobs, n = _label_blobs(mask)
     counts = np.bincount(blobs.reshape(-1))
     for nb in range(1, n + 1):
@@ -338,7 +338,7 @@ def _compute_symmetric_dat(dat_raw: np.ndarray, template_v2r: np.ndarray) -> np.
 def _build_dat_prior_cuboid(dat_symm: np.ndarray, template_v2r: np.ndarray) -> np.ndarray:
     """Build a cuboid prior around the high-uptake symmetric DaT region."""
     mask_symm = _get_dat_mask(dat_symm, template_v2r)
-    mask_dilated = binary_dilation(mask_symm, np.ones((10, 10, 10)))
+    mask_dilated = dilation(mask_symm, np.ones((10, 10, 10)))
 
     _, crop = fn_utils.crop_label(mask_dilated, margin=5)
 

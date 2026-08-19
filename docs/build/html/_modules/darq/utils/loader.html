@@ -39,7 +39,15 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../usage.html">Using DARQ</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../deployment.html">Deployment and Remote Access</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../architecture.html">System Architecture</a></li>
+</ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../api/modules.html">darq</a></li>
 </ul>
@@ -105,6 +113,114 @@
 
     <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
     <span class="n">df</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s1">&#39;subject&#39;</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">drop</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">df</span></div>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_normalize_subject_id</span><span class="p">(</span><span class="n">subject</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Ensure subject ID has the &#39;sub-PPMI&#39; prefix.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="s1">&#39;PPMI&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">subject</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s1">&#39;sub-PPMI&#39;</span> <span class="o">+</span> <span class="n">subject</span>
+    <span class="k">return</span> <span class="n">subject</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_read_subject_sessions</span><span class="p">(</span><span class="n">subject</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">part_df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+                            <span class="n">input_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                            <span class="n">seg_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">args</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">Namespace</span><span class="p">,</span>
+                            <span class="n">dice_constraint</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return session-level file paths for one subject, or None if skipped.&quot;&quot;&quot;</span>
+    <span class="n">subject_info</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s1">&#39;mri_path&#39;</span><span class="p">:</span> <span class="p">[],</span> <span class="s1">&#39;label_path&#39;</span><span class="p">:</span> <span class="p">[],</span> <span class="s1">&#39;dat_path&#39;</span><span class="p">:</span> <span class="p">[],</span>
+        <span class="s1">&#39;subject&#39;</span><span class="p">:</span> <span class="p">[],</span> <span class="s1">&#39;dx&#39;</span><span class="p">:</span> <span class="p">[],</span> <span class="s1">&#39;sess&#39;</span><span class="p">:</span> <span class="p">[],</span>
+    <span class="p">}</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">isdir</span><span class="p">(</span><span class="n">join</span><span class="p">(</span><span class="n">input_dir</span><span class="p">,</span> <span class="n">subject</span><span class="p">)):</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="n">sess_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">join</span><span class="p">(</span><span class="n">input_dir</span><span class="p">,</span> <span class="n">subject</span><span class="p">,</span> <span class="n">subject</span> <span class="o">+</span> <span class="s1">&#39;_sessions.tsv&#39;</span><span class="p">),</span> <span class="n">sep</span><span class="o">=</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="n">sess_df</span> <span class="o">=</span> <span class="n">sess_df</span><span class="o">.</span><span class="n">drop_duplicates</span><span class="p">(</span><span class="n">subset</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;session_id&#39;</span><span class="p">])</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s1">&#39;session_id&#39;</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">sess</span> <span class="ow">in</span> <span class="n">listdir</span><span class="p">(</span><span class="n">join</span><span class="p">(</span><span class="n">input_dir</span><span class="p">,</span> <span class="n">subject</span><span class="p">)):</span>
+        <span class="n">anat_dir</span>  <span class="o">=</span> <span class="n">join</span><span class="p">(</span><span class="n">input_dir</span><span class="p">,</span> <span class="n">subject</span><span class="p">,</span> <span class="n">sess</span><span class="p">,</span> <span class="s1">&#39;anat&#39;</span><span class="p">)</span>
+        <span class="n">spect_dir</span> <span class="o">=</span> <span class="n">join</span><span class="p">(</span><span class="n">input_dir</span><span class="p">,</span> <span class="n">subject</span><span class="p">,</span> <span class="n">sess</span><span class="p">,</span> <span class="s1">&#39;spect&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">exists</span><span class="p">(</span><span class="n">anat_dir</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">exists</span><span class="p">(</span><span class="n">spect_dir</span><span class="p">):</span>
+            <span class="k">continue</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">exists</span><span class="p">(</span><span class="n">join</span><span class="p">(</span><span class="n">seg_dir</span><span class="p">,</span> <span class="n">subject</span><span class="p">,</span> <span class="n">sess</span><span class="p">,</span> <span class="s1">&#39;anat&#39;</span><span class="p">)):</span>
+            <span class="k">continue</span>
+
+        <span class="c1"># Skip already-processed sessions unless --force</span>
+        <span class="k">if</span> <span class="n">exists</span><span class="p">(</span><span class="n">join</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="n">subject</span><span class="p">,</span> <span class="n">subject</span> <span class="o">+</span> <span class="s1">&#39;_desc-sbr_sessions.tsv&#39;</span><span class="p">)):</span>
+            <span class="n">res_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span>
+                <span class="n">join</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="n">subject</span><span class="p">,</span> <span class="n">subject</span> <span class="o">+</span> <span class="s1">&#39;_desc-sbr_sessions.tsv&#39;</span><span class="p">),</span> <span class="n">sep</span><span class="o">=</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">sess</span> <span class="ow">in</span> <span class="n">res_df</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">to_list</span><span class="p">()</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">args</span><span class="o">.</span><span class="n">force</span><span class="p">:</span>
+                <span class="k">continue</span>
+
+        <span class="c1"># DaTSCAN file</span>
+        <span class="n">dat_files</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">listdir</span><span class="p">(</span><span class="n">spect_dir</span><span class="p">)</span> <span class="k">if</span> <span class="s1">&#39;DaTSCAN&#39;</span> <span class="ow">in</span> <span class="n">f</span> <span class="ow">and</span> <span class="n">f</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;.nii.gz&#39;</span><span class="p">)]</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">dat_files</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="n">dat_file</span> <span class="o">=</span> <span class="n">join</span><span class="p">(</span><span class="n">spect_dir</span><span class="p">,</span> <span class="n">dat_files</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+        <span class="c1"># MRI file (prefer T1w, fallback to FLAIR then T2w)</span>
+        <span class="n">t1w</span>   <span class="o">=</span> <span class="p">[</span><span class="n">f</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">listdir</span><span class="p">(</span><span class="n">anat_dir</span><span class="p">)</span> <span class="k">if</span> <span class="s1">&#39;T1w&#39;</span>   <span class="ow">in</span> <span class="n">f</span> <span class="ow">and</span> <span class="n">f</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;.nii.gz&#39;</span><span class="p">)]</span>
+        <span class="n">flair</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">listdir</span><span class="p">(</span><span class="n">anat_dir</span><span class="p">)</span> <span class="k">if</span> <span class="s1">&#39;FLAIR&#39;</span>  <span class="ow">in</span> <span class="n">f</span> <span class="ow">and</span> <span class="n">f</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;.nii.gz&#39;</span><span class="p">)]</span>
+        <span class="n">t2w</span>   <span class="o">=</span> <span class="p">[</span><span class="n">f</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">listdir</span><span class="p">(</span><span class="n">anat_dir</span><span class="p">)</span> <span class="k">if</span> <span class="s1">&#39;t2w&#39;</span>    <span class="ow">in</span> <span class="n">f</span> <span class="ow">and</span> <span class="n">f</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;.nii.gz&#39;</span><span class="p">)]</span>
+        <span class="k">if</span> <span class="n">t1w</span><span class="p">:</span>
+            <span class="n">mri_file</span> <span class="o">=</span> <span class="n">t1w</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="n">flair</span><span class="p">:</span>
+            <span class="n">mri_file</span> <span class="o">=</span> <span class="n">flair</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="n">t2w</span><span class="p">:</span>
+            <span class="n">mri_file</span> <span class="o">=</span> <span class="n">t2w</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">continue</span>
+
+        <span class="c1"># Segmentation file derived from MRI filename</span>
+        <span class="n">parts</span> <span class="o">=</span> <span class="n">mri_file</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;_&#39;</span><span class="p">)</span>
+        <span class="n">ext_parts</span> <span class="o">=</span> <span class="n">parts</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">)</span>
+        <span class="n">ext_parts</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+=</span> <span class="s1">&#39;dseg&#39;</span>
+        <span class="n">seg_fname</span> <span class="o">=</span> <span class="s1">&#39;_&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">parts</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">+</span> <span class="s1">&#39;_&#39;</span> <span class="o">+</span> <span class="s1">&#39;.&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">ext_parts</span><span class="p">)</span>
+
+        <span class="n">im_file</span>  <span class="o">=</span> <span class="n">join</span><span class="p">(</span><span class="n">anat_dir</span><span class="p">,</span>  <span class="n">mri_file</span><span class="p">)</span>
+        <span class="n">seg_file</span> <span class="o">=</span> <span class="n">join</span><span class="p">(</span><span class="n">seg_dir</span><span class="p">,</span> <span class="n">subject</span><span class="p">,</span> <span class="n">sess</span><span class="p">,</span> <span class="s1">&#39;anat&#39;</span><span class="p">,</span> <span class="n">seg_fname</span><span class="p">)</span>
+
+        <span class="n">dat_proxy</span> <span class="o">=</span> <span class="n">nib</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">dat_file</span><span class="p">)</span>
+        <span class="n">mri_proxy</span> <span class="o">=</span> <span class="n">nib</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">im_file</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">mri_proxy</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">3</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">dat_proxy</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="n">s</span> <span class="o">&gt;</span> <span class="mi">10</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">dat_proxy</span><span class="o">.</span><span class="n">shape</span><span class="p">):</span>
+            <span class="k">continue</span>
+
+        <span class="n">subject_info</span><span class="p">[</span><span class="s1">&#39;mri_path&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">im_file</span><span class="p">)</span>
+        <span class="n">subject_info</span><span class="p">[</span><span class="s1">&#39;label_path&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">seg_file</span><span class="p">)</span>
+        <span class="n">subject_info</span><span class="p">[</span><span class="s1">&#39;dat_path&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">dat_file</span><span class="p">)</span>
+        <span class="n">subject_info</span><span class="p">[</span><span class="s1">&#39;subject&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">subject</span><span class="p">)</span>
+        <span class="n">subject_info</span><span class="p">[</span><span class="s1">&#39;sess&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sess</span><span class="p">)</span>
+        <span class="n">subject_info</span><span class="p">[</span><span class="s1">&#39;dx&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">part_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">subject</span><span class="p">[</span><span class="mi">4</span><span class="p">:]]</span><span class="o">.</span><span class="n">cohort</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">subject_info</span> <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">subject_info</span><span class="p">[</span><span class="s1">&#39;subject&#39;</span><span class="p">])</span> <span class="k">else</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="build_subject_list">
+<a class="viewcode-back" href="../../../api/darq.utils.html#darq.utils.loader.build_subject_list">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">build_subject_list</span><span class="p">(</span><span class="n">args</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">Namespace</span><span class="p">,</span>
+                       <span class="n">bids_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                       <span class="n">seg_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                       <span class="n">dat_reg_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Scan BIDS directory and return a DataFrame of all sessions to process.&quot;&quot;&quot;</span>
+    <span class="n">part_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">join</span><span class="p">(</span><span class="n">bids_dir</span><span class="p">,</span> <span class="s1">&#39;participants.tsv&#39;</span><span class="p">),</span> <span class="n">sep</span><span class="o">=</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="n">part_df</span> <span class="o">=</span> <span class="n">part_df</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s1">&#39;participant_id&#39;</span><span class="p">)</span>
+
+    <span class="n">candidates</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">subjects</span> <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">subjects</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">listdir</span><span class="p">(</span><span class="n">bids_dir</span><span class="p">)</span>
+
+    <span class="n">rows</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="p">[]</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;mri_path&#39;</span><span class="p">,</span> <span class="s1">&#39;label_path&#39;</span><span class="p">,</span> <span class="s1">&#39;dat_path&#39;</span><span class="p">,</span> <span class="s1">&#39;subject&#39;</span><span class="p">,</span> <span class="s1">&#39;dx&#39;</span><span class="p">,</span> <span class="s1">&#39;sess&#39;</span><span class="p">)}</span>
+    <span class="k">for</span> <span class="n">subject</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="p">(</span><span class="n">candidates</span><span class="p">):</span>
+        <span class="n">sid</span> <span class="o">=</span> <span class="n">_normalize_subject_id</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">subject</span><span class="p">))</span>
+        <span class="n">info</span> <span class="o">=</span> <span class="n">_read_subject_sessions</span><span class="p">(</span><span class="n">sid</span><span class="p">,</span> <span class="n">part_df</span><span class="p">,</span> <span class="n">bids_dir</span><span class="p">,</span> <span class="n">dat_reg_dir</span><span class="p">,</span> <span class="n">seg_dir</span><span class="p">,</span> <span class="n">args</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">info</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">rows</span><span class="p">:</span>
+            <span class="n">rows</span><span class="p">[</span><span class="n">k</span><span class="p">]</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">info</span><span class="p">[</span><span class="n">k</span><span class="p">])</span>
+
+    <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">rows</span><span class="p">)</span>
+    <span class="n">df</span><span class="o">.</span><span class="n">set_index</span><span class="p">([</span><span class="s1">&#39;subject&#39;</span><span class="p">,</span> <span class="s1">&#39;sess&#39;</span><span class="p">],</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">drop</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">df</span></div>
 
 </pre></div>

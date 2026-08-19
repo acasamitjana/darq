@@ -1,0 +1,234 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Using DARQ &mdash; DARQ 0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=2709fde1"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Deployment and Remote Access" href="deployment.html" />
+    <link rel="prev" title="DARQ Documentation" href="index.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            DARQ
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Using DARQ</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#accessing-the-application">Accessing the application</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#input-data">Input data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#running-a-darq-analysis">Running a DARQ analysis</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#processing-status">Processing status</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#results">Results</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#job-data">Job data</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="deployment.html">Deployment and Remote Access</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="architecture.html">System Architecture</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api/modules.html">darq</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">DARQ</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Using DARQ</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/usage.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="using-darq">
+<h1>Using DARQ<a class="headerlink" href="#using-darq" title="Link to this heading"></a></h1>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h2>
+<p>DARQ provides a web interface for processing DaTSCAN studies and obtaining
+quantitative and visual results.</p>
+<p>The web application is implemented with Gradio. Internally, the interface
+communicates with a FastAPI backend that creates a processing job. A DARQ
+worker then executes the processing pipeline and stores the generated results.</p>
+<p>From the user’s point of view, this internal architecture is transparent:
+the study is uploaded through the web interface and the results are displayed
+when the processing finishes.</p>
+</section>
+<section id="accessing-the-application">
+<h2>Accessing the application<a class="headerlink" href="#accessing-the-application" title="Link to this heading"></a></h2>
+<p>When DARQ is running on the same computer as the user, the web interface can
+be accessed from a browser at:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">http</span><span class="p">:</span><span class="o">//</span><span class="n">localhost</span><span class="p">:</span><span class="mi">7860</span>
+</pre></div>
+</div>
+<p>The FastAPI interactive documentation is available at:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">http</span><span class="p">:</span><span class="o">//</span><span class="n">localhost</span><span class="p">:</span><span class="mi">8000</span><span class="o">/</span><span class="n">docs</span>
+</pre></div>
+</div>
+<p>When DARQ is running on a remote server, an SSH tunnel can be used to access
+these services securely. See <a class="reference internal" href="deployment.html"><span class="doc">Deployment and Remote Access</span></a> for detailed instructions.</p>
+</section>
+<section id="input-data">
+<h2>Input data<a class="headerlink" href="#input-data" title="Link to this heading"></a></h2>
+<p>The current DARQ web workflow uses the following input files:</p>
+<ul class="simple">
+<li><p>DaTSCAN image.</p></li>
+<li><p>MRI / T1-weighted image.</p></li>
+<li><p>SynthSeg segmentation image.</p></li>
+<li><p>Subject identifier.</p></li>
+</ul>
+<p>Medical image inputs are expected to use the NIfTI format.</p>
+<p>The subject identifier is used to identify the processing job and the
+generated outputs.</p>
+</section>
+<section id="running-a-darq-analysis">
+<h2>Running a DARQ analysis<a class="headerlink" href="#running-a-darq-analysis" title="Link to this heading"></a></h2>
+<p>To process a study:</p>
+<ol class="arabic simple">
+<li><p>Open the DARQ web application.</p></li>
+<li><p>Upload the DaTSCAN image.</p></li>
+<li><p>Upload the MRI image.</p></li>
+<li><p>Upload the SynthSeg segmentation.</p></li>
+<li><p>Enter the subject identifier.</p></li>
+<li><p>Press <strong>Run DARQ</strong>.</p></li>
+</ol>
+<p>The interface sends the input files to FastAPI. FastAPI stores the inputs and
+creates a new job. The DARQ worker detects the queued job and starts the
+processing pipeline automatically.</p>
+</section>
+<section id="processing-status">
+<h2>Processing status<a class="headerlink" href="#processing-status" title="Link to this heading"></a></h2>
+<p>Each DARQ execution has an associated processing state.</p>
+<p>The main states are:</p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">queued</span></code></dt><dd><p>The job has been created and is waiting for the DARQ worker.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">running</span></code></dt><dd><p>The worker is executing the DARQ pipeline.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">completed</span></code></dt><dd><p>The pipeline has finished successfully and the results are available.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">failed</span></code></dt><dd><p>An error occurred during execution. Additional information is stored in
+the job metadata and logs.</p>
+</dd>
+</dl>
+<p>While a job is running, the interface also displays the current DARQ
+processing step.</p>
+<p>The progress information represents actual processing stages reported by the
+pipeline rather than an estimated timer.</p>
+</section>
+<section id="results">
+<h2>Results<a class="headerlink" href="#results" title="Link to this heading"></a></h2>
+<p>After successful processing, the application displays the main DARQ outputs.</p>
+<p>These include:</p>
+<ul class="simple">
+<li><p>Striatal Binding Ratio (SBR) results.</p></li>
+<li><p>Symmetry measurements.</p></li>
+<li><p>DaTSCAN/MRI qualitative overlay images.</p></li>
+<li><p>Registration information.</p></li>
+<li><p>A downloadable DARQ PDF report.</p></li>
+</ul>
+<p>The results are generated by the DARQ processing pipeline and stored inside
+the directory associated with the corresponding job.</p>
+</section>
+<section id="job-data">
+<h2>Job data<a class="headerlink" href="#job-data" title="Link to this heading"></a></h2>
+<p>Each execution has an independent working directory under the DARQ jobs
+directory.</p>
+<p>A typical job contains:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">webapp</span><span class="o">/</span><span class="n">jobs</span><span class="o">/&lt;</span><span class="n">job_id</span><span class="o">&gt;/</span>
+<span class="o">|</span>
+<span class="o">+--</span> <span class="nb">input</span><span class="o">/</span>
+<span class="o">+--</span> <span class="n">output</span><span class="o">/</span>
+<span class="o">+--</span> <span class="n">logs</span><span class="o">/</span>
+<span class="o">+--</span> <span class="n">display</span><span class="o">/</span>
+<span class="o">+--</span> <span class="n">meta</span><span class="o">.</span><span class="n">json</span>
+<span class="o">+--</span> <span class="n">DARQ_report</span><span class="o">.</span><span class="n">pdf</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">meta.json</span></code> file stores information about the job, including its
+identifier, processing status, timestamps, progress information, outputs and
+possible errors.</p>
+<p>This structure keeps the inputs and outputs of different executions
+separated and makes each processing job traceable.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="index.html" class="btn btn-neutral float-left" title="DARQ Documentation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="deployment.html" class="btn btn-neutral float-right" title="Deployment and Remote Access" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Adrià Casamitjana.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -39,7 +39,15 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../usage.html">Using DARQ</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../deployment.html">Deployment and Remote Access</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture.html">System Architecture</a></li>
+</ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../api/modules.html">darq</a></li>
 </ul>
@@ -71,6 +79,8 @@
   <h1>Source code for darq.config</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+
 <span class="c1"># ── Directories ──────────────────────────────────────────────────────────────</span>
 <span class="n">BIDS_DIR</span>   <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;BIDS_DIR&#39;</span><span class="p">)</span>
 <span class="n">SEG_DIR</span>    <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;SEG_DIR&#39;</span><span class="p">)</span>
@@ -78,15 +88,60 @@
 <span class="c1"># ── Device ───────────────────────────────────────────────────────────────────</span>
 <div class="viewcode-block" id="get_device">
 <a class="viewcode-back" href="../../api/darq.html#darq.config.get_device">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">get_device</span><span class="p">(</span><span class="n">cpu_flag</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the computation device selected by the user.</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_device</span><span class="p">(</span>
+    <span class="n">cpu_flag</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+    <span class="n">requested_device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Resolve and validate the PyTorch execution device.&quot;&quot;&quot;</span>
 
-<span class="sd">    :param cpu_flag: If True, force CPU execution. If False, select CUDA execution.</span>
-<span class="sd">    </span>
-<span class="sd">    :return: Device string used by PyTorch, either ``&#39;cpu&#39;`` or ``&#39;cuda&#39;``.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    
-    <span class="k">return</span> <span class="s1">&#39;cpu&#39;</span> <span class="k">if</span> <span class="n">cpu_flag</span> <span class="k">else</span> <span class="s1">&#39;cuda&#39;</span></div>
+    <span class="k">if</span> <span class="n">cpu_flag</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">&quot;cpu&quot;</span>
+
+    <span class="c1"># Direct execution without --device.</span>
+    <span class="k">if</span> <span class="n">requested_device</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">():</span>
+            <span class="k">return</span> <span class="s2">&quot;cuda:0&quot;</span>
+
+        <span class="k">return</span> <span class="s2">&quot;cpu&quot;</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">device</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="n">requested_device</span><span class="p">)</span>
+
+    <span class="k">except</span> <span class="p">(</span><span class="ne">RuntimeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Invalid execution device: </span><span class="si">{</span><span class="n">requested_device</span><span class="si">!r}</span><span class="s2">.&quot;</span>
+        <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
+
+    <span class="k">if</span> <span class="n">device</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;cpu&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">&quot;cpu&quot;</span>
+
+    <span class="k">if</span> <span class="n">device</span><span class="o">.</span><span class="n">type</span> <span class="o">!=</span> <span class="s2">&quot;cuda&quot;</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;DARQ only supports CPU and CUDA devices. &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;Received: </span><span class="si">{</span><span class="n">requested_device</span><span class="si">!r}</span><span class="s2">.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">():</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">requested_device</span><span class="si">}</span><span class="s2"> was requested, &quot;</span>
+            <span class="s2">&quot;but CUDA is not available.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="n">gpu_index</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">device</span><span class="o">.</span><span class="n">index</span>
+        <span class="k">if</span> <span class="n">device</span><span class="o">.</span><span class="n">index</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="k">else</span> <span class="mi">0</span>
+    <span class="p">)</span>
+
+    <span class="n">gpu_count</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">device_count</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="n">gpu_index</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">gpu_index</span> <span class="o">&gt;=</span> <span class="n">gpu_count</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;GPU index </span><span class="si">{</span><span class="n">gpu_index</span><span class="si">}</span><span class="s2"> does not exist. &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;Available GPU indices: 0 to </span><span class="si">{</span><span class="n">gpu_count</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2">.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;cuda:</span><span class="si">{</span><span class="n">gpu_index</span><span class="si">}</span><span class="s2">&quot;</span></div>
 
 
 <span class="c1"># ── Training / optimisation ───────────────────────────────────────────────────</span>

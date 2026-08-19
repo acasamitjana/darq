@@ -1,0 +1,587 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dat2MRI Tutorial &mdash; DARQ 0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=2709fde1"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="darq" href="../api/modules.html" />
+    <link rel="prev" title="System Architecture" href="../architecture.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            DARQ
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../usage.html">Using DARQ</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../deployment.html">Deployment and Remote Access</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../architecture.html">System Architecture</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Dat2MRI Tutorial</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#goal-of-the-script">1. Goal of the script</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#tutorial-input-files">2. Tutorial input files</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#t1w-nii-gz"><code class="docutils literal notranslate"><span class="pre">T1w.nii.gz</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#datscan-nii-gz"><code class="docutils literal notranslate"><span class="pre">datscan.nii.gz</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#synthseg-nii-gz"><code class="docutils literal notranslate"><span class="pre">synthseg.nii.gz</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#current-input-limitation">3. Current input limitation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#running-from-the-source-repository">4. Running from the source repository</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#linux-git-bash">Linux / Git Bash</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#windows-powershell">Windows PowerShell</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#basic-cpu-command">5. Basic CPU command</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#windows-command-prompt">6. Windows Command Prompt</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#device-selection-and-gpu-execution">7. Device selection and GPU execution</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#main-command-line-arguments">8. Main command-line arguments</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#optimizer-options">9. Optimizer options</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#lbfgs">LBFGS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#adam">Adam</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#sgd">SGD</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#recomputing-existing-results">10. Recomputing existing results</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#what-happens-when-the-script-starts">11. What happens when the script starts?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#expected-terminal-output">12. Expected terminal output</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#expected-output-files">13. Expected output files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#output-description">14. Output description</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#pipeline-details">15. Pipeline details</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#step-1-argument-parsing">Step 1: Argument parsing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#step-2-device-selection">Step 2: Device selection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#step-3-subject-preparation">Step 3: Subject preparation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#step-4-dataset-loading">Step 4: Dataset loading</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#step-5-preprocessing">Step 5: Preprocessing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#step-6-dat-symmetry-and-mask-generation">Step 6: DaT symmetry and mask generation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#step-7-mri-dat-preparation">Step 7: MRI-DaT preparation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#step-8-mri-dat-registration">Step 8: MRI-DaT registration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#step-9-result-saving">Step 9: Result saving</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#relationship-with-the-web-application">16. Relationship with the web application</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../api/modules.html">darq</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">DARQ</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Dat2MRI Tutorial</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/tutorials/dat2mri.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="dat2mri-tutorial">
+<h1>Dat2MRI Tutorial<a class="headerlink" href="#dat2mri-tutorial" title="Link to this heading"></a></h1>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h2>
+<p>This tutorial explains how to run the <code class="docutils literal notranslate"><span class="pre">dat2mri.py</span></code> processing script from the
+DARQ project.</p>
+<p>The script parses the command-line arguments, selects the execution device,
+builds the subject dataset, creates the preprocessing transforms, executes the
+DaTSCAN-to-MRI processing pipeline and writes the generated results to the
+selected output directory.</p>
+<p>The current implementation supports processing a single study from explicit
+input paths and can also build a subject list from BIDS-style inputs when the
+corresponding command-line options are provided.</p>
+<p>The processing loop in the current version of <code class="docutils literal notranslate"><span class="pre">dat2mri.py</span></code> is sequential.
+Although <code class="docutils literal notranslate"><span class="pre">joblib</span></code> parallel-processing utilities are imported, they are kept
+for future batch-processing support and are not currently used by the main
+processing loop.</p>
+</section>
+<section id="goal-of-the-script">
+<h2>1. Goal of the script<a class="headerlink" href="#goal-of-the-script" title="Link to this heading"></a></h2>
+<p>The goal of <code class="docutils literal notranslate"><span class="pre">dat2mri.py</span></code> is to process a DaTSCAN image together with a
+T1-weighted MRI image and a SynthSeg segmentation.</p>
+<p>For the single-subject workflow, the pipeline uses:</p>
+<ul class="simple">
+<li><p>A DaTSCAN image.</p></li>
+<li><p>A T1-weighted MRI image.</p></li>
+<li><p>A SynthSeg segmentation image.</p></li>
+<li><p>An output directory.</p></li>
+</ul>
+<p>The main outputs include:</p>
+<ul class="simple">
+<li><p>Registered and resampled DaTSCAN images.</p></li>
+<li><p>Affine transformation matrices.</p></li>
+<li><p>Striatal Binding Ratio (SBR) tables.</p></li>
+<li><p>Left-right symmetry metric tables.</p></li>
+</ul>
+</section>
+<section id="tutorial-input-files">
+<h2>2. Tutorial input files<a class="headerlink" href="#tutorial-input-files" title="Link to this heading"></a></h2>
+<p>For this tutorial, the example input files are stored in the project tutorial
+data directory:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>data/tutorial/
+|-- T1w.nii.gz
+|-- datscan.nii.gz
+`-- synthseg.nii.gz
+</pre></div>
+</div>
+<p>These files use the NIfTI medical-image format.</p>
+<section id="t1w-nii-gz">
+<h3><code class="docutils literal notranslate"><span class="pre">T1w.nii.gz</span></code><a class="headerlink" href="#t1w-nii-gz" title="Link to this heading"></a></h3>
+<p>T1-weighted MRI image used as the anatomical reference.</p>
+</section>
+<section id="datscan-nii-gz">
+<h3><code class="docutils literal notranslate"><span class="pre">datscan.nii.gz</span></code><a class="headerlink" href="#datscan-nii-gz" title="Link to this heading"></a></h3>
+<p>Functional DaTSCAN image that will be registered and quantified.</p>
+</section>
+<section id="synthseg-nii-gz">
+<h3><code class="docutils literal notranslate"><span class="pre">synthseg.nii.gz</span></code><a class="headerlink" href="#synthseg-nii-gz" title="Link to this heading"></a></h3>
+<p>SynthSeg segmentation containing the anatomical labels used to build the masks
+required by the DARQ pipeline.</p>
+</section>
+</section>
+<section id="current-input-limitation">
+<h2>3. Current input limitation<a class="headerlink" href="#current-input-limitation" title="Link to this heading"></a></h2>
+<p>The current single-subject workflow requires both the MRI image and the
+SynthSeg segmentation.</p>
+<p>Template-based processing without MRI and segmentation is not supported by the
+current implementation.</p>
+<p>For the standard tutorial workflow, the required paths are therefore:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>--dat
+--mri
+--seg
+--o
+</pre></div>
+</div>
+</section>
+<section id="running-from-the-source-repository">
+<h2>4. Running from the source repository<a class="headerlink" href="#running-from-the-source-repository" title="Link to this heading"></a></h2>
+<p>When running the script directly from the source repository, the project root
+must be importable by Python.</p>
+<p>If DARQ is already installed in the active Python environment, no additional
+<code class="docutils literal notranslate"><span class="pre">PYTHONPATH</span></code> configuration should normally be necessary.</p>
+<p>If DARQ is not installed, run the following command from the repository root.</p>
+<section id="linux-git-bash">
+<h3>Linux / Git Bash<a class="headerlink" href="#linux-git-bash" title="Link to this heading"></a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">PYTHONPATH</span><span class="o">=</span><span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span>
+</pre></div>
+</div>
+</section>
+<section id="windows-powershell">
+<h3>Windows PowerShell<a class="headerlink" href="#windows-powershell" title="Link to this heading"></a></h3>
+<div class="highlight-powershell notranslate"><div class="highlight"><pre><span></span><span class="nv">$env:PYTHONPATH</span> <span class="p">=</span> <span class="p">(</span><span class="nb">Get-Location</span><span class="p">).</span><span class="n">Path</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="basic-cpu-command">
+<h2>5. Basic CPU command<a class="headerlink" href="#basic-cpu-command" title="Link to this heading"></a></h2>
+<p>For a reproducible tutorial execution on CPU:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>py<span class="w"> </span>scripts/dat2mri.py<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--dat<span class="w"> </span>data/tutorial/datscan.nii.gz<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--mri<span class="w"> </span>data/tutorial/T1w.nii.gz<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--seg<span class="w"> </span>data/tutorial/synthseg.nii.gz<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--o<span class="w"> </span>data/tutorial/output<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--cpu
+</pre></div>
+</div>
+<p>The generated results are written to:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>data/tutorial/output/
+</pre></div>
+</div>
+</section>
+<section id="windows-command-prompt">
+<h2>6. Windows Command Prompt<a class="headerlink" href="#windows-command-prompt" title="Link to this heading"></a></h2>
+<p>When using Windows Command Prompt instead of PowerShell or Git Bash, use <code class="docutils literal notranslate"><span class="pre">^</span></code>
+for line continuation:</p>
+<div class="highlight-batch notranslate"><div class="highlight"><pre><span></span>py scripts/dat2mri.py <span class="se">^</span>
+<span class="se"> </span>   --dat data/tutorial/datscan.nii.gz <span class="se">^</span>
+<span class="se"> </span>   --mri data/tutorial/T1w.nii.gz <span class="se">^</span>
+<span class="se"> </span>   --seg data/tutorial/synthseg.nii.gz <span class="se">^</span>
+<span class="se"> </span>   --o data/tutorial/output <span class="se">^</span>
+<span class="se"> </span>   --cpu
+</pre></div>
+</div>
+</section>
+<section id="device-selection-and-gpu-execution">
+<h2>7. Device selection and GPU execution<a class="headerlink" href="#device-selection-and-gpu-execution" title="Link to this heading"></a></h2>
+<p>The current <code class="docutils literal notranslate"><span class="pre">dat2mri.py</span></code> obtains the execution device through
+<code class="docutils literal notranslate"><span class="pre">darq.config.get_device()</span></code>.</p>
+<p>The device-selection function receives both the <code class="docutils literal notranslate"><span class="pre">--cpu</span></code> flag and the device
+request supplied by the command-line parser.</p>
+<p>For a CPU-only tutorial run, use:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>--cpu
+</pre></div>
+</div>
+<p>For GPU-capable environments, the script can be executed without forcing CPU:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>py<span class="w"> </span>scripts/dat2mri.py<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--dat<span class="w"> </span>data/tutorial/datscan.nii.gz<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--mri<span class="w"> </span>data/tutorial/T1w.nii.gz<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--seg<span class="w"> </span>data/tutorial/synthseg.nii.gz<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--o<span class="w"> </span>data/tutorial/output
+</pre></div>
+</div>
+<p>At startup, the script prints the selected execution device:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Execution device: &lt;device&gt;
+</pre></div>
+</div>
+<p>The exact accepted values and default behaviour of the optional device
+selection argument are defined by the current <code class="docutils literal notranslate"><span class="pre">darq.cli</span></code> implementation.</p>
+<p>When DARQ is executed through the web application and worker infrastructure,
+device selection is handled by that deployment workflow rather than by this
+tutorial command.</p>
+</section>
+<section id="main-command-line-arguments">
+<h2>8. Main command-line arguments<a class="headerlink" href="#main-command-line-arguments" title="Link to this heading"></a></h2>
+<p>The single-subject tutorial uses the following arguments:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 25.0%" />
+<col style="width: 75.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Argument</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--dat</span></code></p></td>
+<td><p>Path to the input DaTSCAN image.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--mri</span></code></p></td>
+<td><p>Path to the input T1-weighted MRI image.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--seg</span></code></p></td>
+<td><p>Path to the input SynthSeg segmentation image.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--o</span></code></p></td>
+<td><p>Path to the output directory.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--opt_str</span></code></p></td>
+<td><p>Optimizer selected for rigid registration.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--force</span></code></p></td>
+<td><p>Recompute a subject even when existing result files are detected.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--cpu</span></code></p></td>
+<td><p>Force execution on CPU.</p></td>
+</tr>
+</tbody>
+</table>
+<p>The current <code class="docutils literal notranslate"><span class="pre">dat2mri.py</span></code> also reads additional options such as device and
+BIDS-related settings through <code class="docutils literal notranslate"><span class="pre">parse_args()</span></code>. Their exact syntax is defined
+in <code class="docutils literal notranslate"><span class="pre">darq.cli</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">--num_cores</span></code> is intentionally not described as enabling parallel execution
+here because the current main processing loop is sequential.</p>
+</section>
+<section id="optimizer-options">
+<h2>9. Optimizer options<a class="headerlink" href="#optimizer-options" title="Link to this heading"></a></h2>
+<p>The registration optimizer is selected with <code class="docutils literal notranslate"><span class="pre">--opt_str</span></code>.</p>
+<p>The processing code supports:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">lbfgs</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">adam</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sgd</span></code></p></li>
+</ul>
+<section id="lbfgs">
+<h3>LBFGS<a class="headerlink" href="#lbfgs" title="Link to this heading"></a></h3>
+<p>If LBFGS is the configured default, the tutorial can be run without specifying
+<code class="docutils literal notranslate"><span class="pre">--opt_str</span></code>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>py<span class="w"> </span>scripts/dat2mri.py<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--dat<span class="w"> </span>data/tutorial/datscan.nii.gz<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--mri<span class="w"> </span>data/tutorial/T1w.nii.gz<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--seg<span class="w"> </span>data/tutorial/synthseg.nii.gz<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--o<span class="w"> </span>data/tutorial/output<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--cpu
+</pre></div>
+</div>
+</section>
+<section id="adam">
+<h3>Adam<a class="headerlink" href="#adam" title="Link to this heading"></a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>py<span class="w"> </span>scripts/dat2mri.py<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--dat<span class="w"> </span>data/tutorial/datscan.nii.gz<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--mri<span class="w"> </span>data/tutorial/T1w.nii.gz<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--seg<span class="w"> </span>data/tutorial/synthseg.nii.gz<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--o<span class="w"> </span>data/tutorial/output<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--opt_str<span class="w"> </span>adam<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--cpu
+</pre></div>
+</div>
+</section>
+<section id="sgd">
+<h3>SGD<a class="headerlink" href="#sgd" title="Link to this heading"></a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>py<span class="w"> </span>scripts/dat2mri.py<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--dat<span class="w"> </span>data/tutorial/datscan.nii.gz<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--mri<span class="w"> </span>data/tutorial/T1w.nii.gz<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--seg<span class="w"> </span>data/tutorial/synthseg.nii.gz<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--o<span class="w"> </span>data/tutorial/output<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--opt_str<span class="w"> </span>sgd<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--cpu
+</pre></div>
+</div>
+</section>
+</section>
+<section id="recomputing-existing-results">
+<h2>10. Recomputing existing results<a class="headerlink" href="#recomputing-existing-results" title="Link to this heading"></a></h2>
+<p>DARQ checks whether a subject already has generated results.</p>
+<p>If the SBR output already exists and <code class="docutils literal notranslate"><span class="pre">--force</span></code> is not enabled, the subject
+can be skipped to avoid recomputation.</p>
+<p>To force a new execution:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>py<span class="w"> </span>scripts/dat2mri.py<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--dat<span class="w"> </span>data/tutorial/datscan.nii.gz<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--mri<span class="w"> </span>data/tutorial/T1w.nii.gz<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--seg<span class="w"> </span>data/tutorial/synthseg.nii.gz<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--o<span class="w"> </span>data/tutorial/output<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--force<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--cpu
+</pre></div>
+</div>
+</section>
+<section id="what-happens-when-the-script-starts">
+<h2>11. What happens when the script starts?<a class="headerlink" href="#what-happens-when-the-script-starts" title="Link to this heading"></a></h2>
+<p>The current <code class="docutils literal notranslate"><span class="pre">dat2mri.py</span></code> performs the following high-level sequence:</p>
+<ol class="arabic simple">
+<li><p>Clear the terminal.</p></li>
+<li><p>Parse command-line arguments with <code class="docutils literal notranslate"><span class="pre">parse_args()</span></code>.</p></li>
+<li><p>Select the execution device with <code class="docutils literal notranslate"><span class="pre">get_device()</span></code>.</p></li>
+<li><p>Build either a single subject or a BIDS subject list.</p></li>
+<li><p>Create an <code class="docutils literal notranslate"><span class="pre">MRI_DaT</span></code> dataset.</p></li>
+<li><p>Build the preprocessing transforms.</p></li>
+<li><p>Build the transforms used to simulate DaT uptake from the MRI-derived mask.</p></li>
+<li><p>Create the registration configuration.</p></li>
+<li><p>Process each subject sequentially with <code class="docutils literal notranslate"><span class="pre">process_subject()</span></code>.</p></li>
+<li><p>Report any failed subjects.</p></li>
+<li><p>Print the final completion message.</p></li>
+</ol>
+</section>
+<section id="expected-terminal-output">
+<h2>12. Expected terminal output<a class="headerlink" href="#expected-terminal-output" title="Link to this heading"></a></h2>
+<p>A successful start produces output similar to:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span># ------------------------- #
+# Running Dat2MRI algorithm #
+# ------------------------- #
+
+Execution device: cpu
+Total sessions to process: N=1
+
+Subject: 0  (1/1)
+ * Preprocessing.
+ * DaT symmetry and mask.
+ * MRI DaT simulation and mask.
+ * MRI-DaT registration.
+</pre></div>
+</div>
+<p>During registration, additional information about the optimizer, configured
+losses and final registration loss can also be printed.</p>
+<p>When processing ends, the script reports the number of failed subjects and
+prints:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span># ---------#
+# All DONE #
+# ---------#
+</pre></div>
+</div>
+</section>
+<section id="expected-output-files">
+<h2>13. Expected output files<a class="headerlink" href="#expected-output-files" title="Link to this heading"></a></h2>
+<p>For the tutorial subject, the output directory can contain files such as:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>output/
+|-- 0_dat.nii.gz
+|-- 0_desc-resampled_dat.nii.gz
+|-- 0_sbr.tsv
+|-- 0_space-dat_rot.npy
+|-- 0_space-symmetricT1w_aff.npy
+|-- 0_space-T1w_aff.npy
+|-- 0_space-T1wdseg_rot.npy
+`-- 0_symm.tsv
+</pre></div>
+</div>
+<p>The exact set of files depends on the current result-saving implementation.</p>
+</section>
+<section id="output-description">
+<h2>14. Output description<a class="headerlink" href="#output-description" title="Link to this heading"></a></h2>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 40.0%" />
+<col style="width: 60.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Output</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">0_dat.nii.gz</span></code></p></td>
+<td><p>DaTSCAN image after applying the estimated transformation.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">0_desc-resampled_dat.nii.gz</span></code></p></td>
+<td><p>DaTSCAN image resampled into the MRI / segmentation space.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">0_sbr.tsv</span></code></p></td>
+<td><p>Table containing regional Striatal Binding Ratio (SBR) measurements.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">0_space-dat_rot.npy</span></code></p></td>
+<td><p>Rotation / alignment matrix estimated for the DaTSCAN image during preprocessing.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">0_space-symmetricT1w_aff.npy</span></code></p></td>
+<td><p>Affine matrix saved from the MRI-DaT registration in the symmetric T1-weighted space.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">0_space-T1w_aff.npy</span></code></p></td>
+<td><p>Final affine transformation associated with the DaTSCAN-to-T1w result.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">0_space-T1wdseg_rot.npy</span></code></p></td>
+<td><p>Rotation / alignment matrix estimated for the MRI / SynthSeg data during preprocessing.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">0_symm.tsv</span></code></p></td>
+<td><p>Table containing left-right symmetry measurements.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="pipeline-details">
+<h2>15. Pipeline details<a class="headerlink" href="#pipeline-details" title="Link to this heading"></a></h2>
+<section id="step-1-argument-parsing">
+<h3>Step 1: Argument parsing<a class="headerlink" href="#step-1-argument-parsing" title="Link to this heading"></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">parse_args()</span></code> reads the paths and execution options supplied from the
+command line.</p>
+</section>
+<section id="step-2-device-selection">
+<h3>Step 2: Device selection<a class="headerlink" href="#step-2-device-selection" title="Link to this heading"></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">get_device()</span></code> chooses the execution device using the CPU flag and the device
+request returned by the command-line parser.</p>
+</section>
+<section id="step-3-subject-preparation">
+<h3>Step 3: Subject preparation<a class="headerlink" href="#step-3-subject-preparation" title="Link to this heading"></a></h3>
+<p>For explicit input paths, <code class="docutils literal notranslate"><span class="pre">build_subject()</span></code> creates the subject/session table.</p>
+<p>When BIDS-related input options are provided, <code class="docutils literal notranslate"><span class="pre">build_subject_list()</span></code> is used
+instead.</p>
+</section>
+<section id="step-4-dataset-loading">
+<h3>Step 4: Dataset loading<a class="headerlink" href="#step-4-dataset-loading" title="Link to this heading"></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">MRI_DaT</span></code> loads the MRI, SynthSeg segmentation and DaTSCAN image and prepares
+the anatomical and DaT-derived masks required by the pipeline.</p>
+</section>
+<section id="step-5-preprocessing">
+<h3>Step 5: Preprocessing<a class="headerlink" href="#step-5-preprocessing" title="Link to this heading"></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">get_preprocessing_transforms()</span></code> builds the transformations used to align the
+DaTSCAN and MRI-derived data and create the common template space.</p>
+<p>Intermediate rotation matrices are saved during this stage.</p>
+</section>
+<section id="step-6-dat-symmetry-and-mask-generation">
+<h3>Step 6: DaT symmetry and mask generation<a class="headerlink" href="#step-6-dat-symmetry-and-mask-generation" title="Link to this heading"></a></h3>
+<p>The processing pipeline builds a left-right symmetric representation of the
+DaTSCAN data and estimates the high-uptake mask using clustering and anatomical
+constraints.</p>
+</section>
+<section id="step-7-mri-dat-preparation">
+<h3>Step 7: MRI-DaT preparation<a class="headerlink" href="#step-7-mri-dat-preparation" title="Link to this heading"></a></h3>
+<p>The MRI-derived striatal mask is transformed into a DaT-like representation.
+This is used together with the DaT mask to estimate the initial translation for
+registration.</p>
+</section>
+<section id="step-8-mri-dat-registration">
+<h3>Step 8: MRI-DaT registration<a class="headerlink" href="#step-8-mri-dat-registration" title="Link to this heading"></a></h3>
+<p>A rigid registration model aligns the DaT-derived and MRI-derived information
+using the optimizer selected by <code class="docutils literal notranslate"><span class="pre">--opt_str</span></code>.</p>
+</section>
+<section id="step-9-result-saving">
+<h3>Step 9: Result saving<a class="headerlink" href="#step-9-result-saving" title="Link to this heading"></a></h3>
+<p>The final affine matrix, registered images and quantitative results are written
+to the selected output directory.</p>
+</section>
+</section>
+<section id="relationship-with-the-web-application">
+<h2>16. Relationship with the web application<a class="headerlink" href="#relationship-with-the-web-application" title="Link to this heading"></a></h2>
+<p>This tutorial describes direct execution of <code class="docutils literal notranslate"><span class="pre">scripts/dat2mri.py</span></code>.</p>
+<p>The deployed DARQ web application uses additional infrastructure around the
+processing pipeline:</p>
+<ul class="simple">
+<li><p>Gradio provides the user interface.</p></li>
+<li><p>FastAPI creates and exposes processing jobs.</p></li>
+<li><p>A DARQ worker executes the pipeline.</p></li>
+<li><p>Job metadata stores processing state and progress.</p></li>
+</ul>
+<p>Therefore, the command-line tutorial is useful for understanding and testing
+the core processing workflow independently of the web deployment.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../architecture.html" class="btn btn-neutral float-left" title="System Architecture" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../api/modules.html" class="btn btn-neutral float-right" title="darq" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Adrià Casamitjana.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

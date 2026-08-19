@@ -4,7 +4,7 @@
 import nibabel as nib
 from torch.utils.data import Dataset
 import numpy as np
-from skimage.morphology import binary_opening
+from skimage.morphology import opening
 from skimage import filters
 from sklearn.cluster import KMeans
 from sklearn.mixture import GaussianMixture as GMM
@@ -80,7 +80,7 @@ class MRI_DaT(Dataset):
 
         subject['label_v2r'] = subject['label'].affine
 
-        subject['label_image'] = np.array(subject['label'].dataobj)
+        subject['label_image'] = np.asarray(subject['label'].dataobj)
         subject['label_image'] = remove_synthseg_parcellation(subject['label_image'])
         subject['label_image'] = remove_synthseg_hemisphere(subject['label_image'])
 
@@ -95,7 +95,7 @@ class MRI_DaT(Dataset):
             subject['label_crop'] = T_crop
 
         subject['mri'] = fn_utils.vol_resample_fast(nib.Nifti1Image(subject['label_image'], subject['label_v2r']), subject['mri'])
-        subject['mri_image'] = np.array(subject['mri'].dataobj)
+        subject['mri_image'] = np.asarray(subject['mri'].dataobj)
         subject['mask_str'], subject['mask_occ'] = self._get_ROI_masks(subject['label_image'])
         non_cerebrum = (subject['label_image'] <= 0) | (subject['label_image'] == 7) | (subject['label_image'] == 8) | (subject['label_image'] == 46) | (subject['label_image'] == 47) | (subject['label_image'] == 15) | (subject['label_image'] == 16) | (subject['label_image'] == 24)
         subject['mask_brain'] = (1 - non_cerebrum).astype('float')
@@ -103,11 +103,11 @@ class MRI_DaT(Dataset):
         subject['mask_pu'] = (subject['label_image'] == 12).astype('float')
 
 
-        dat_image = np.squeeze(np.array(subject['dat'].dataobj).astype('float32'))
+        dat_image = np.squeeze(np.asarray(subject['dat'].dataobj).astype('float32'))
         dat_v2r = subject['dat'].affine
         if self.crop_dat:
             Crop_th = filters.threshold_otsu(dat_image)
-            mask_crop = binary_opening(dat_image > Crop_th, np.ones((3, 3, 3))).astype('float32')
+            mask_crop = opening(dat_image > Crop_th, np.ones((3, 3, 3))).astype('float32')
             _, crop_coords = fn_utils.crop_label(mask_crop, margin=15, threshold=0)
             dat_image = fn_utils.apply_crop(dat_image, crop_coords)
             tx_crop = np.array([crop_coords[0][0], crop_coords[1][0], crop_coords[2][0], 1])

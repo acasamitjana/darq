@@ -39,7 +39,15 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../usage.html">Using DARQ</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../deployment.html">Deployment and Remote Access</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../architecture.html">System Architecture</a></li>
+</ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../api/modules.html">darq</a></li>
 </ul>
@@ -73,7 +81,7 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">skimage.morphology</span><span class="w"> </span><span class="kn">import</span> <span class="n">binary_opening</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">skimage.morphology</span><span class="w"> </span><span class="kn">import</span> <span class="n">opening</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">darq.src</span><span class="w"> </span><span class="kn">import</span> <span class="n">models</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">darq.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">fn_utils</span><span class="p">,</span> <span class="n">io</span>
@@ -136,7 +144,7 @@
                 <span class="n">image</span> <span class="o">=</span> <span class="n">image</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
 
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">operator</span> <span class="o">==</span> <span class="s1">&#39;opening&#39;</span><span class="p">:</span>
-                <span class="n">image</span> <span class="o">=</span> <span class="n">binary_opening</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">struct_fn</span><span class="p">(</span><span class="n">data_dict</span><span class="p">[</span><span class="n">k</span><span class="p">]))</span>
+                <span class="n">image</span> <span class="o">=</span> <span class="n">opening</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">struct_fn</span><span class="p">(</span><span class="n">data_dict</span><span class="p">[</span><span class="n">k</span><span class="p">]))</span>
 
             <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">image_shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">5</span><span class="p">:</span>
                 <span class="n">data_dict</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">data_dict</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span>
@@ -351,7 +359,7 @@
         <span class="c1"># TODO: check what is the shape of the proxy 3D or 5D and go ahead with one option only.</span>
         <span class="n">v2r_init</span> <span class="o">=</span> <span class="n">proxy</span><span class="o">.</span><span class="n">affine</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s1">&#39;float32&#39;</span><span class="p">)</span>
         <span class="n">image_shape</span> <span class="o">=</span> <span class="n">proxy</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="mi">3</span><span class="p">]</span>
-        <span class="n">mask</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">proxy</span><span class="o">.</span><span class="n">dataobj</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s1">&#39;float32&#39;</span><span class="p">)</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">proxy</span><span class="o">.</span><span class="n">dataobj</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s1">&#39;float32&#39;</span><span class="p">)</span>
 
         <span class="c1"># Compte RAS</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">proxy</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">5</span><span class="p">:</span>

@@ -42,7 +42,15 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../usage.html">Using DARQ</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../deployment.html">Deployment and Remote Access</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../architecture.html">System Architecture</a></li>
+</ul>
 <ul class="current">
 <li class="toctree-l1 current"><a class="reference internal" href="modules.html">darq</a><ul class="current">
 <li class="toctree-l2 current"><a class="reference internal" href="darq.html">darq package</a><ul class="current">
@@ -726,7 +734,7 @@ subject dictionary.</p>
 <p>Save per-session registration outputs and compute SBR / symmetry metrics.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="darq.src.results.save_session_results">
-<span class="sig-prename descclassname"><span class="pre">darq.src.results.</span></span><span class="sig-name descname"><span class="pre">save_session_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dat_orig_proxy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">labels_orig_proxy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">loss</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tag</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">results_dir</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">force_flag</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/darq/src/results.html#save_session_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#darq.src.results.save_session_results" title="Link to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">darq.src.results.</span></span><span class="sig-name descname"><span class="pre">save_session_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dat_orig_proxy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">labels_orig_proxy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">loss</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tag</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">results_dir</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">force_flag</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'cpu'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/darq/src/results.html#save_session_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#darq.src.results.save_session_results" title="Link to this definition"></a></dt>
 <dd><p>Resample the registered DaT image to MRI space and save session metrics.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -739,6 +747,7 @@ reference.</p></li>
 <li><p><strong>results_dir</strong> (<em>str</em>) – Directory where images and TSV files are written.</p></li>
 <li><p><strong>force_flag</strong> (<em>bool</em>) – If True, replace previous rows for the same subject/session when
 writing TSV files.</p></li>
+<li><p><strong>device</strong> (<em>str</em>) – Device to use for computations (‘cpu’ or ‘cuda’).</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>

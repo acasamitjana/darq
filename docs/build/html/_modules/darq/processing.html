@@ -39,7 +39,15 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../usage.html">Using DARQ</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../deployment.html">Deployment and Remote Access</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture.html">System Architecture</a></li>
+</ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../api/modules.html">darq</a></li>
 </ul>
@@ -77,7 +85,7 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">skimage.morphology</span><span class="w"> </span><span class="kn">import</span> <span class="n">binary_dilation</span><span class="p">,</span> <span class="n">binary_opening</span><span class="p">,</span> <span class="n">ball</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">skimage.morphology</span><span class="w"> </span><span class="kn">import</span> <span class="n">dilation</span><span class="p">,</span> <span class="n">opening</span><span class="p">,</span> <span class="n">ball</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.cluster</span><span class="w"> </span><span class="kn">import</span> <span class="n">KMeans</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.mixture</span><span class="w"> </span><span class="kn">import</span> <span class="n">GaussianMixture</span> <span class="k">as</span> <span class="n">GMM</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">skimage</span><span class="w"> </span><span class="kn">import</span> <span class="n">measure</span>
@@ -147,7 +155,7 @@
             <span class="k">break</span>
 
     <span class="n">mask</span> <span class="o">=</span> <span class="p">(</span><span class="n">seg</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">seg</span><span class="p">)[</span><span class="n">ordered</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]])</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">img</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
-    <span class="n">mask</span> <span class="o">=</span> <span class="n">binary_opening</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="n">ball</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span>
+    <span class="n">mask</span> <span class="o">=</span> <span class="n">opening</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="n">ball</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span>
     <span class="n">blobs</span><span class="p">,</span> <span class="n">n</span> <span class="o">=</span> <span class="n">_label_blobs</span><span class="p">(</span><span class="n">mask</span><span class="p">)</span>
     <span class="n">counts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">bincount</span><span class="p">(</span><span class="n">blobs</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
     <span class="k">for</span> <span class="n">nb</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">n</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
@@ -328,6 +336,7 @@
         <span class="n">tag</span><span class="o">=</span><span class="n">run_info</span><span class="p">[</span><span class="s2">&quot;tag&quot;</span><span class="p">],</span>
         <span class="n">loss</span><span class="o">=</span><span class="n">tensor_dict</span><span class="p">[</span><span class="s2">&quot;loss&quot;</span><span class="p">],</span>
         <span class="n">force_flag</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">force</span><span class="p">,</span>
+        <span class="n">device</span><span class="o">=</span><span class="n">run_info</span><span class="p">[</span><span class="s2">&quot;device&quot;</span><span class="p">],</span>
     <span class="p">)</span>
 
     <span class="n">_clean_temp_dir</span><span class="p">(</span><span class="n">run_info</span><span class="p">[</span><span class="s2">&quot;temp_dir&quot;</span><span class="p">])</span>
@@ -414,7 +423,7 @@
 <span class="k">def</span><span class="w"> </span><span class="nf">_build_dat_prior_cuboid</span><span class="p">(</span><span class="n">dat_symm</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">template_v2r</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Build a cuboid prior around the high-uptake symmetric DaT region.&quot;&quot;&quot;</span>
     <span class="n">mask_symm</span> <span class="o">=</span> <span class="n">_get_dat_mask</span><span class="p">(</span><span class="n">dat_symm</span><span class="p">,</span> <span class="n">template_v2r</span><span class="p">)</span>
-    <span class="n">mask_dilated</span> <span class="o">=</span> <span class="n">binary_dilation</span><span class="p">(</span><span class="n">mask_symm</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">)))</span>
+    <span class="n">mask_dilated</span> <span class="o">=</span> <span class="n">dilation</span><span class="p">(</span><span class="n">mask_symm</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">)))</span>
 
     <span class="n">_</span><span class="p">,</span> <span class="n">crop</span> <span class="o">=</span> <span class="n">fn_utils</span><span class="o">.</span><span class="n">crop_label</span><span class="p">(</span><span class="n">mask_dilated</span><span class="p">,</span> <span class="n">margin</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
 
@@ -611,6 +620,7 @@
     <span class="n">session</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">JointInstanceReg</span><span class="p">(</span>
         <span class="n">loss_dict</span><span class="p">,</span>
         <span class="n">main_dict</span><span class="p">,</span>
+        <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
         <span class="n">da</span><span class="o">=</span><span class="p">[],</span>
         <span class="n">trainable_keys</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;reg&quot;</span><span class="p">:</span> <span class="s2">&quot;reg&quot;</span><span class="p">},</span>
         <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
@@ -632,7 +642,8 @@
                           <span class="n">output_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
                           <span class="n">tag</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
                           <span class="n">loss</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
-                          <span class="n">force_flag</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+                          <span class="n">force_flag</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                          <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;cpu&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Save affine matrix, registered outputs and quantitative results.&quot;&quot;&quot;</span>
     <span class="n">tensor_dict</span> <span class="o">=</span> <span class="n">ToNumpy</span><span class="p">(</span>
         <span class="n">keys</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;ref_image&quot;</span><span class="p">,</span> <span class="s2">&quot;flo_image&quot;</span><span class="p">,</span> <span class="s2">&quot;reg_image&quot;</span><span class="p">],</span>
@@ -655,6 +666,7 @@
         <span class="n">tag</span><span class="o">=</span><span class="n">data_dict</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">],</span>
         <span class="n">results_dir</span><span class="o">=</span><span class="n">output_dir</span><span class="p">,</span>
         <span class="n">force_flag</span><span class="o">=</span><span class="n">force_flag</span><span class="p">,</span>
+        <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
     <span class="p">)</span>
 
 

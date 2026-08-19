@@ -1,0 +1,478 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Deployment and Remote Access &mdash; DARQ 0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=2709fde1"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="System Architecture" href="architecture.html" />
+    <link rel="prev" title="Using DARQ" href="usage.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            DARQ
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="usage.html">Using DARQ</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Deployment and Remote Access</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#requirements">Requirements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#obtaining-the-project">Obtaining the project</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#validating-docker-compose">Validating Docker Compose</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#starting-darq">Starting DARQ</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#checking-the-services">Checking the services</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#viewing-logs">Viewing logs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#accessing-darq-locally">Accessing DARQ locally</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#docker-internal-network">Docker internal network</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#stopping-darq">Stopping DARQ</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#rebuilding-after-code-changes">Rebuilding after code changes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#gpu-verification">GPU verification</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#remote-server-deployment">Remote server deployment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#remote-access-using-an-ssh-tunnel">Remote access using an SSH tunnel</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#ssh-tunnel-overview">SSH tunnel overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#updating-a-server-deployment">Updating a server deployment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#inspecting-a-processing-job">Inspecting a processing job</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#troubleshooting">Troubleshooting</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#application-does-not-open">Application does not open</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#worker-does-not-process-jobs">Worker does not process jobs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#fastapi-does-not-respond">FastAPI does not respond</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#gpu-is-not-detected">GPU is not detected</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#remote-interface-cannot-be-reached">Remote interface cannot be reached</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="architecture.html">System Architecture</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api/modules.html">darq</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">DARQ</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Deployment and Remote Access</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/deployment.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="deployment-and-remote-access">
+<h1>Deployment and Remote Access<a class="headerlink" href="#deployment-and-remote-access" title="Link to this heading"></a></h1>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h2>
+<p>DARQ can be deployed using Docker Compose.</p>
+<p>The application is divided into three main services:</p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">frontend</span></code></dt><dd><p>Gradio web interface. It is exposed on port 7860.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">api</span></code></dt><dd><p>FastAPI backend. It is exposed on port 8000.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">worker</span></code></dt><dd><p>DARQ processing worker. It does not require a public HTTP port.</p>
+</dd>
+</dl>
+<p>Docker Compose allows the complete system to be started and stopped using a
+small set of commands.</p>
+</section>
+<section id="requirements">
+<h2>Requirements<a class="headerlink" href="#requirements" title="Link to this heading"></a></h2>
+<p>The deployment machine should provide:</p>
+<ul class="simple">
+<li><p>Git.</p></li>
+<li><p>Docker.</p></li>
+<li><p>Docker Compose.</p></li>
+<li><p>Access to the DARQ source repository.</p></li>
+</ul>
+<p>For GPU execution, the machine must additionally provide:</p>
+<ul class="simple">
+<li><p>A compatible NVIDIA GPU.</p></li>
+<li><p>NVIDIA drivers.</p></li>
+<li><p>NVIDIA Container Toolkit / GPU support for Docker.</p></li>
+</ul>
+</section>
+<section id="obtaining-the-project">
+<h2>Obtaining the project<a class="headerlink" href="#obtaining-the-project" title="Link to this heading"></a></h2>
+<p>Clone the repository on the machine where DARQ will run:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>&lt;repository-url&gt;
+<span class="nb">cd</span><span class="w"> </span>darq
+</pre></div>
+</div>
+<p>If a specific branch must be used:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>checkout<span class="w"> </span>&lt;branch-name&gt;
+</pre></div>
+</div>
+</section>
+<section id="validating-docker-compose">
+<h2>Validating Docker Compose<a class="headerlink" href="#validating-docker-compose" title="Link to this heading"></a></h2>
+<p>Before starting the application, the Docker Compose configuration can be
+validated with:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker<span class="w"> </span>compose<span class="w"> </span>config
+</pre></div>
+</div>
+<p>This command checks that the Compose configuration can be interpreted
+correctly without starting the services.</p>
+</section>
+<section id="starting-darq">
+<h2>Starting DARQ<a class="headerlink" href="#starting-darq" title="Link to this heading"></a></h2>
+<p>To build the images and start all services:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>--build
+</pre></div>
+</div>
+<p>This command runs Docker Compose in the foreground and displays the service
+logs directly in the terminal.</p>
+<p>For normal server operation, DARQ can be started in the background:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d<span class="w"> </span>--build
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">-d</span></code> option starts the containers in detached mode, allowing them to
+continue running after returning to the terminal.</p>
+</section>
+<section id="checking-the-services">
+<h2>Checking the services<a class="headerlink" href="#checking-the-services" title="Link to this heading"></a></h2>
+<p>The current state of the containers can be checked with:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker<span class="w"> </span>compose<span class="w"> </span>ps
+</pre></div>
+</div>
+<p>The expected services are:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">api</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">worker</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">frontend</span></code></p></li>
+</ul>
+</section>
+<section id="viewing-logs">
+<h2>Viewing logs<a class="headerlink" href="#viewing-logs" title="Link to this heading"></a></h2>
+<p>Logs from all services can be displayed with:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker<span class="w"> </span>compose<span class="w"> </span>logs<span class="w"> </span>-f
+</pre></div>
+</div>
+<p>Logs from an individual service can also be inspected.</p>
+<p>FastAPI:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker<span class="w"> </span>compose<span class="w"> </span>logs<span class="w"> </span>-f<span class="w"> </span>api
+</pre></div>
+</div>
+<p>DARQ worker:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker<span class="w"> </span>compose<span class="w"> </span>logs<span class="w"> </span>-f<span class="w"> </span>worker
+</pre></div>
+</div>
+<p>Gradio frontend:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker<span class="w"> </span>compose<span class="w"> </span>logs<span class="w"> </span>-f<span class="w"> </span>frontend
+</pre></div>
+</div>
+<p>The worker logs are particularly useful for monitoring the execution of the
+DARQ pipeline and diagnosing processing errors.</p>
+</section>
+<section id="accessing-darq-locally">
+<h2>Accessing DARQ locally<a class="headerlink" href="#accessing-darq-locally" title="Link to this heading"></a></h2>
+<p>If the browser is running on the same machine as Docker, open:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">http</span><span class="p">:</span><span class="o">//</span><span class="n">localhost</span><span class="p">:</span><span class="mi">7860</span>
+</pre></div>
+</div>
+<p>to access the Gradio interface.</p>
+<p>FastAPI documentation is available at:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">http</span><span class="p">:</span><span class="o">//</span><span class="n">localhost</span><span class="p">:</span><span class="mi">8000</span><span class="o">/</span><span class="n">docs</span>
+</pre></div>
+</div>
+<p>The address <code class="docutils literal notranslate"><span class="pre">0.0.0.0</span></code> can appear in application logs because the service
+uses it as a listening address. It is not the address that should normally
+be entered in the browser.</p>
+</section>
+<section id="docker-internal-network">
+<h2>Docker internal network<a class="headerlink" href="#docker-internal-network" title="Link to this heading"></a></h2>
+<p>Docker Compose provides an internal network between the services.</p>
+<p>Inside Docker, the frontend communicates with FastAPI using the service name:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">http</span><span class="p">:</span><span class="o">//</span><span class="n">api</span><span class="p">:</span><span class="mi">8000</span>
+</pre></div>
+</div>
+<p>Inside a container, <code class="docutils literal notranslate"><span class="pre">localhost</span></code> refers to that same container. Therefore,
+the frontend must use the Compose service name <code class="docutils literal notranslate"><span class="pre">api</span></code> instead of
+<code class="docutils literal notranslate"><span class="pre">localhost</span></code> to communicate with the FastAPI container.</p>
+<p>From the host computer, however, the published ports are accessed using
+<code class="docutils literal notranslate"><span class="pre">localhost</span></code>.</p>
+</section>
+<section id="stopping-darq">
+<h2>Stopping DARQ<a class="headerlink" href="#stopping-darq" title="Link to this heading"></a></h2>
+<p>To stop and remove the containers created by Docker Compose:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker<span class="w"> </span>compose<span class="w"> </span>down
+</pre></div>
+</div>
+<p>To restart the services:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker<span class="w"> </span>compose<span class="w"> </span>restart
+</pre></div>
+</div>
+</section>
+<section id="rebuilding-after-code-changes">
+<h2>Rebuilding after code changes<a class="headerlink" href="#rebuilding-after-code-changes" title="Link to this heading"></a></h2>
+<p>If dependencies, the Dockerfile or relevant application code have changed,
+the Docker images should be rebuilt.</p>
+<p>A normal rebuild can be performed with:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d<span class="w"> </span>--build
+</pre></div>
+</div>
+<p>If a completely clean image build is required:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker<span class="w"> </span>compose<span class="w"> </span>build<span class="w"> </span>--no-cache
+docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d
+</pre></div>
+</div>
+</section>
+<section id="gpu-verification">
+<h2>GPU verification<a class="headerlink" href="#gpu-verification" title="Link to this heading"></a></h2>
+<p>On systems configured for NVIDIA GPU execution, first check that the host can
+detect the GPU:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>nvidia-smi
+</pre></div>
+</div>
+<p>Docker GPU access can be tested with:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>--gpus<span class="w"> </span>all<span class="w"> </span>nvidia/cuda:12.9.0-base-ubuntu22.04<span class="w"> </span>nvidia-smi
+</pre></div>
+</div>
+<p>PyTorch GPU availability inside the DARQ worker can be checked with:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker<span class="w"> </span>compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>worker<span class="w"> </span>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;import torch; print(&#39;CUDA available:&#39;, torch.cuda.is_available()); print(&#39;PyTorch CUDA:&#39;, torch.version.cuda); print(torch.cuda.get_device_name(0) if torch.cuda.is_available() else &#39;CPU&#39;)&quot;</span>
+</pre></div>
+</div>
+<p>If CUDA is unavailable, inspect the Docker GPU configuration, NVIDIA drivers
+and the PyTorch installation used by the worker.</p>
+</section>
+<section id="remote-server-deployment">
+<h2>Remote server deployment<a class="headerlink" href="#remote-server-deployment" title="Link to this heading"></a></h2>
+<p>DARQ can also run permanently on a remote server.</p>
+<p>First connect to the server:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>ssh<span class="w"> </span>-p<span class="w"> </span>&lt;SSH_PORT&gt;<span class="w"> </span>&lt;USER&gt;@&lt;SERVER&gt;
+</pre></div>
+</div>
+<p>Move to the DARQ deployment directory:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>&lt;DARQ_DEPLOYMENT_DIRECTORY&gt;
+</pre></div>
+</div>
+<p>Then start the services:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d<span class="w"> </span>--build
+</pre></div>
+</div>
+<p>Check that the containers are running:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker<span class="w"> </span>compose<span class="w"> </span>ps
+</pre></div>
+</div>
+</section>
+<section id="remote-access-using-an-ssh-tunnel">
+<h2>Remote access using an SSH tunnel<a class="headerlink" href="#remote-access-using-an-ssh-tunnel" title="Link to this heading"></a></h2>
+<p>The Gradio and FastAPI ports do not need to be accessed directly from the
+remote network.</p>
+<p>An SSH tunnel can forward the remote ports to the user’s computer.</p>
+<p>Run the following command from the user’s local computer:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>ssh<span class="w"> </span>-L<span class="w"> </span><span class="m">7860</span>:localhost:7860<span class="w"> </span>-L<span class="w"> </span><span class="m">8000</span>:localhost:8000<span class="w"> </span>-p<span class="w"> </span>&lt;SSH_PORT&gt;<span class="w"> </span>&lt;USER&gt;@&lt;SERVER&gt;
+</pre></div>
+</div>
+<p>Keep this SSH connection open while using DARQ.</p>
+<p>The first forwarding rule:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">-</span><span class="n">L</span> <span class="mi">7860</span><span class="p">:</span><span class="n">localhost</span><span class="p">:</span><span class="mi">7860</span>
+</pre></div>
+</div>
+<p>connects port 7860 on the user’s computer to port 7860 on the remote server.</p>
+<p>The second rule:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">-</span><span class="n">L</span> <span class="mi">8000</span><span class="p">:</span><span class="n">localhost</span><span class="p">:</span><span class="mi">8000</span>
+</pre></div>
+</div>
+<p>does the same for FastAPI.</p>
+<p>After the SSH tunnel has been established, open:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">http</span><span class="p">:</span><span class="o">//</span><span class="n">localhost</span><span class="p">:</span><span class="mi">7860</span>
+</pre></div>
+</div>
+<p>on the local computer to use DARQ.</p>
+<p>FastAPI can be accessed locally through the same tunnel at:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">http</span><span class="p">:</span><span class="o">//</span><span class="n">localhost</span><span class="p">:</span><span class="mi">8000</span><span class="o">/</span><span class="n">docs</span>
+</pre></div>
+</div>
+<p>Although <code class="docutils literal notranslate"><span class="pre">localhost</span></code> is used in the browser, the actual DARQ services are
+running on the remote server.</p>
+</section>
+<section id="ssh-tunnel-overview">
+<h2>SSH tunnel overview<a class="headerlink" href="#ssh-tunnel-overview" title="Link to this heading"></a></h2>
+<p>The remote access flow is:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Local</span> <span class="n">computer</span>                         <span class="n">Remote</span> <span class="n">server</span>
+
+<span class="n">Browser</span>
+   <span class="o">|</span>
+   <span class="o">|</span> <span class="n">http</span><span class="p">:</span><span class="o">//</span><span class="n">localhost</span><span class="p">:</span><span class="mi">7860</span>
+   <span class="n">v</span>
+<span class="n">localhost</span><span class="p">:</span><span class="mi">7860</span>
+   <span class="o">|</span>
+   <span class="o">|</span>       <span class="n">encrypted</span> <span class="n">SSH</span> <span class="n">tunnel</span>
+   <span class="o">+---------------------------------&gt;</span> <span class="n">localhost</span><span class="p">:</span><span class="mi">7860</span>
+                                            <span class="o">|</span>
+                                            <span class="n">v</span>
+                                         <span class="n">Gradio</span>
+                                            <span class="o">|</span>
+                                            <span class="n">v</span>
+                                         <span class="n">FastAPI</span>
+                                            <span class="o">|</span>
+                                            <span class="n">v</span>
+                                       <span class="n">DARQ</span> <span class="n">worker</span>
+                                            <span class="o">|</span>
+                                            <span class="n">v</span>
+                                      <span class="n">DARQ</span> <span class="n">pipeline</span>
+</pre></div>
+</div>
+</section>
+<section id="updating-a-server-deployment">
+<h2>Updating a server deployment<a class="headerlink" href="#updating-a-server-deployment" title="Link to this heading"></a></h2>
+<p>To update an existing server installation, enter the DARQ directory and
+retrieve the latest version of the selected branch:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>pull
+</pre></div>
+</div>
+<p>Then rebuild and restart the containers:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker<span class="w"> </span>compose<span class="w"> </span>down
+docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d<span class="w"> </span>--build
+</pre></div>
+</div>
+</section>
+<section id="inspecting-a-processing-job">
+<h2>Inspecting a processing job<a class="headerlink" href="#inspecting-a-processing-job" title="Link to this heading"></a></h2>
+<p>Each job stores metadata and logs that can be used to diagnose execution
+problems.</p>
+<p>The main files to inspect are:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">webapp</span><span class="o">/</span><span class="n">jobs</span><span class="o">/&lt;</span><span class="n">job_id</span><span class="o">&gt;/</span><span class="n">meta</span><span class="o">.</span><span class="n">json</span>
+<span class="n">webapp</span><span class="o">/</span><span class="n">jobs</span><span class="o">/&lt;</span><span class="n">job_id</span><span class="o">&gt;/</span><span class="n">logs</span><span class="o">/</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">meta.json</span></code> file contains the current job state and progress
+information.</p>
+<p>The worker and pipeline logs provide detailed information if a processing job
+fails.</p>
+</section>
+<section id="troubleshooting">
+<h2>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Link to this heading"></a></h2>
+<section id="application-does-not-open">
+<h3>Application does not open<a class="headerlink" href="#application-does-not-open" title="Link to this heading"></a></h3>
+<p>Check whether all containers are running:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker<span class="w"> </span>compose<span class="w"> </span>ps
+</pre></div>
+</div>
+<p>Then inspect the logs:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker<span class="w"> </span>compose<span class="w"> </span>logs<span class="w"> </span>-f
+</pre></div>
+</div>
+</section>
+<section id="worker-does-not-process-jobs">
+<h3>Worker does not process jobs<a class="headerlink" href="#worker-does-not-process-jobs" title="Link to this heading"></a></h3>
+<p>Inspect the worker logs:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker<span class="w"> </span>compose<span class="w"> </span>logs<span class="w"> </span>-f<span class="w"> </span>worker
+</pre></div>
+</div>
+<p>Verify that the worker container is running and that the job metadata
+contains a valid processing state.</p>
+</section>
+<section id="fastapi-does-not-respond">
+<h3>FastAPI does not respond<a class="headerlink" href="#fastapi-does-not-respond" title="Link to this heading"></a></h3>
+<p>Inspect the API logs:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker<span class="w"> </span>compose<span class="w"> </span>logs<span class="w"> </span>-f<span class="w"> </span>api
+</pre></div>
+</div>
+<p>When running locally, verify:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">http</span><span class="p">:</span><span class="o">//</span><span class="n">localhost</span><span class="p">:</span><span class="mi">8000</span><span class="o">/</span><span class="n">docs</span>
+</pre></div>
+</div>
+</section>
+<section id="gpu-is-not-detected">
+<h3>GPU is not detected<a class="headerlink" href="#gpu-is-not-detected" title="Link to this heading"></a></h3>
+<p>Check the host first:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>nvidia-smi
+</pre></div>
+</div>
+<p>Then verify CUDA inside the worker container using the GPU verification
+commands described above.</p>
+</section>
+<section id="remote-interface-cannot-be-reached">
+<h3>Remote interface cannot be reached<a class="headerlink" href="#remote-interface-cannot-be-reached" title="Link to this heading"></a></h3>
+<p>Verify that the Docker services are running on the server and that the SSH
+tunnel remains open.</p>
+<p>Then access:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">http</span><span class="p">:</span><span class="o">//</span><span class="n">localhost</span><span class="p">:</span><span class="mi">7860</span>
+</pre></div>
+</div>
+<p>from the local computer.</p>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="usage.html" class="btn btn-neutral float-left" title="Using DARQ" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="architecture.html" class="btn btn-neutral float-right" title="System Architecture" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Adrià Casamitjana.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

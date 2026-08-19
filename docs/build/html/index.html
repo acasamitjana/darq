@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DARQ documentation &mdash; DARQ 0.1 documentation</title>
+  <title>DARQ Documentation &mdash; DARQ 0.1 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
 
@@ -19,7 +19,7 @@
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="darq" href="api/modules.html" /> 
+    <link rel="next" title="Using DARQ" href="usage.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -41,7 +41,18 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="usage.html">Using DARQ</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="deployment.html">Deployment and Remote Access</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="architecture.html">System Architecture</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/dat2mri.html">Dat2MRI Tutorial</a></li>
+</ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="api/modules.html">darq</a></li>
 </ul>
@@ -60,7 +71,7 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="#" class="icon icon-home" aria-label="Home"></a></li>
-      <li class="breadcrumb-item active">DARQ documentation</li>
+      <li class="breadcrumb-item active">DARQ Documentation</li>
       <li class="wy-breadcrumbs-aside">
             <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
       </li>
@@ -71,12 +82,111 @@
            <div itemprop="articleBody">
              
   <section id="darq-documentation">
-<h1>DARQ documentation<a class="headerlink" href="#darq-documentation" title="Link to this heading"></a></h1>
-<p>Add your content using <code class="docutils literal notranslate"><span class="pre">reStructuredText</span></code> syntax. See the
-<a class="reference external" href="https://www.sphinx-doc.org/en/master/usage/restructuredtext/index.html">reStructuredText</a>
-documentation for details.</p>
+<h1>DARQ Documentation<a class="headerlink" href="#darq-documentation" title="Link to this heading"></a></h1>
+<p>DARQ is an automatic quantification pipeline for DaTSCAN images. The project
+provides a web-based interface for submitting studies, a FastAPI backend for
+job management, and worker processes responsible for executing the DARQ
+processing pipeline.</p>
+<p>This documentation provides instructions for using and deploying DARQ,
+an overview of the system architecture, tutorials, and the Python API
+reference.</p>
+<section id="user-guide">
+<h2>User Guide<a class="headerlink" href="#user-guide" title="Link to this heading"></a></h2>
 <div class="toctree-wrapper compound">
-<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="usage.html">Using DARQ</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#accessing-the-application">Accessing the application</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#input-data">Input data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#running-a-darq-analysis">Running a DARQ analysis</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#processing-status">Processing status</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#results">Results</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#job-data">Job data</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+<section id="deployment">
+<h2>Deployment<a class="headerlink" href="#deployment" title="Link to this heading"></a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="deployment.html">Deployment and Remote Access</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="deployment.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="deployment.html#requirements">Requirements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="deployment.html#obtaining-the-project">Obtaining the project</a></li>
+<li class="toctree-l2"><a class="reference internal" href="deployment.html#validating-docker-compose">Validating Docker Compose</a></li>
+<li class="toctree-l2"><a class="reference internal" href="deployment.html#starting-darq">Starting DARQ</a></li>
+<li class="toctree-l2"><a class="reference internal" href="deployment.html#checking-the-services">Checking the services</a></li>
+<li class="toctree-l2"><a class="reference internal" href="deployment.html#viewing-logs">Viewing logs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="deployment.html#accessing-darq-locally">Accessing DARQ locally</a></li>
+<li class="toctree-l2"><a class="reference internal" href="deployment.html#docker-internal-network">Docker internal network</a></li>
+<li class="toctree-l2"><a class="reference internal" href="deployment.html#stopping-darq">Stopping DARQ</a></li>
+<li class="toctree-l2"><a class="reference internal" href="deployment.html#rebuilding-after-code-changes">Rebuilding after code changes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="deployment.html#gpu-verification">GPU verification</a></li>
+<li class="toctree-l2"><a class="reference internal" href="deployment.html#remote-server-deployment">Remote server deployment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="deployment.html#remote-access-using-an-ssh-tunnel">Remote access using an SSH tunnel</a></li>
+<li class="toctree-l2"><a class="reference internal" href="deployment.html#ssh-tunnel-overview">SSH tunnel overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="deployment.html#updating-a-server-deployment">Updating a server deployment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="deployment.html#inspecting-a-processing-job">Inspecting a processing job</a></li>
+<li class="toctree-l2"><a class="reference internal" href="deployment.html#troubleshooting">Troubleshooting</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+<section id="system-architecture">
+<h2>System Architecture<a class="headerlink" href="#system-architecture" title="Link to this heading"></a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="architecture.html">System Architecture</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="architecture.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="architecture.html#gradio-frontend">Gradio frontend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="architecture.html#fastapi-backend">FastAPI backend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="architecture.html#job-system">Job system</a></li>
+<li class="toctree-l2"><a class="reference internal" href="architecture.html#meta-json">meta.json</a></li>
+<li class="toctree-l2"><a class="reference internal" href="architecture.html#darq-worker">DARQ worker</a></li>
+<li class="toctree-l2"><a class="reference internal" href="architecture.html#darq-processing-pipeline">DARQ processing pipeline</a></li>
+<li class="toctree-l2"><a class="reference internal" href="architecture.html#real-time-progress">Real-time progress</a></li>
+<li class="toctree-l2"><a class="reference internal" href="architecture.html#docker-compose-architecture">Docker Compose architecture</a></li>
+<li class="toctree-l2"><a class="reference internal" href="architecture.html#internal-communication">Internal communication</a></li>
+<li class="toctree-l2"><a class="reference internal" href="architecture.html#scalability">Scalability</a></li>
+<li class="toctree-l2"><a class="reference internal" href="architecture.html#design-principles">Design principles</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+<section id="tutorials">
+<h2>Tutorials<a class="headerlink" href="#tutorials" title="Link to this heading"></a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/dat2mri.html">Dat2MRI Tutorial</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/dat2mri.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/dat2mri.html#goal-of-the-script">1. Goal of the script</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/dat2mri.html#tutorial-input-files">2. Tutorial input files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/dat2mri.html#current-input-limitation">3. Current input limitation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/dat2mri.html#running-from-the-source-repository">4. Running from the source repository</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/dat2mri.html#basic-cpu-command">5. Basic CPU command</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/dat2mri.html#windows-command-prompt">6. Windows Command Prompt</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/dat2mri.html#device-selection-and-gpu-execution">7. Device selection and GPU execution</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/dat2mri.html#main-command-line-arguments">8. Main command-line arguments</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/dat2mri.html#optimizer-options">9. Optimizer options</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/dat2mri.html#recomputing-existing-results">10. Recomputing existing results</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/dat2mri.html#what-happens-when-the-script-starts">11. What happens when the script starts?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/dat2mri.html#expected-terminal-output">12. Expected terminal output</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/dat2mri.html#expected-output-files">13. Expected output files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/dat2mri.html#output-description">14. Output description</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/dat2mri.html#pipeline-details">15. Pipeline details</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/dat2mri.html#relationship-with-the-web-application">16. Relationship with the web application</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+<section id="api-reference">
+<h2>API Reference<a class="headerlink" href="#api-reference" title="Link to this heading"></a></h2>
+<div class="toctree-wrapper compound">
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="api/modules.html">darq</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="api/darq.html">darq package</a></li>
@@ -85,12 +195,13 @@ documentation for details.</p>
 </ul>
 </div>
 </section>
+</section>
 
 
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="api/modules.html" class="btn btn-neutral float-right" title="darq" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="usage.html" class="btn btn-neutral float-right" title="Using DARQ" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

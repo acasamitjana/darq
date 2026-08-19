@@ -2,7 +2,7 @@ import nibabel as nib
 import numpy as np
 import torch
 
-from skimage.morphology import binary_opening
+from skimage.morphology import opening
 
 from darq.src import models
 from darq.utils import fn_utils, io
@@ -60,7 +60,7 @@ class MorphologicalOperator(Transform):
                 image = image[0, 0]
 
             if self.operator == 'opening':
-                image = binary_opening(image, self.struct_fn(data_dict[k]))
+                image = opening(image, self.struct_fn(data_dict[k]))
 
             if len(image_shape) == 5:
                 data_dict[k] = data_dict[k][np.newaxis, np.newaxis]
@@ -269,7 +269,7 @@ class AlignLR(Transform):
         # TODO: check what is the shape of the proxy 3D or 5D and go ahead with one option only.
         v2r_init = proxy.affine.astype('float32')
         image_shape = proxy.shape[:3]
-        mask = (np.array(proxy.dataobj) > 0).astype('float32')
+        mask = (np.asarray(proxy.dataobj) > 0).astype('float32')
 
         # Compte RAS
         if len(proxy.shape) == 5:

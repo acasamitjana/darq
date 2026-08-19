@@ -428,7 +428,7 @@ def vol_resample_fast(ref_proxy: nib.Nifti1Image,
         JJ2 = affine[1, 0] * II + affine[1, 1] * JJ + affine[1, 2] * KK + affine[1, 3]
         KK2 = affine[2, 0] * II + affine[2, 1] * JJ + affine[2, 2] * KK + affine[2, 3]
 
-        flow = np.array(proxyflow.dataobj)
+        flow = np.asarray(proxyflow.dataobj)
         if flow.shape[-1] == 3: flow = np.transpose(flow, axes=(3, 0, 1, 2))
         flow = torch.tensor(flow)
 
@@ -451,7 +451,7 @@ def vol_resample_fast(ref_proxy: nib.Nifti1Image,
         KK4 = affine[2, 0] * II + affine[2, 1] * JJ + affine[2, 2] * KK + affine[2, 3]
 
 
-    image = np.array(flo_proxy.dataobj)
+    image = np.asarray(flo_proxy.dataobj)
     if len(flo_proxy.shape) == 3:
         reg_image = fast_3D_interp_torch(torch.tensor(image), II4, JJ4, KK4, mode)
     else:
@@ -540,7 +540,7 @@ def create_template_space(proxy_list: list,
 
         v2r = proxy['affine']
         im_shape = proxy['shape']
-        data = np.array(proxy['data'])
+        data = np.asarray(proxy['data'])
         if len(im_shape) > 3:
             data = data.reshape(im_shape[:3] + (-1,))
         else:
@@ -603,13 +603,13 @@ def create_template_space_tensor(proxy_list: list, resolution=None, mode: str | 
         boundaries_max[it_p] = torch.tensor([maxR, maxA, maxS])
 
     # Get the corners of cuboid in RAS space
-    minR = torch.min(boundaries_min[..., 0])
-    minA = torch.min(boundaries_min[..., 1])
-    minS = torch.min(boundaries_min[..., 2])
-    maxR = torch.max(boundaries_max[..., 0])
-    maxA = torch.max(boundaries_max[..., 1])
-    maxS = torch.max(boundaries_max[..., 2])
-
+    minR = torch.min(boundaries_min[..., 0]).item()
+    minA = torch.min(boundaries_min[..., 1]).item()
+    minS = torch.min(boundaries_min[..., 2]).item()
+    maxR = torch.max(boundaries_max[..., 0]).item()
+    maxA = torch.max(boundaries_max[..., 1]).item()
+    maxS = torch.max(boundaries_max[..., 2]).item()
+    
     # Define header and size
     temp_v2r = np.asarray([[resolution[0], 0, 0, minR],#/(scale[0]*ref_res[0])],#
                           [0, resolution[1], 0, minA],#/(scale[1]*ref_res[1])],#

@@ -42,7 +42,15 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../usage.html">Using DARQ</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../deployment.html">Deployment and Remote Access</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../architecture.html">System Architecture</a></li>
+</ul>
 <ul class="current">
 <li class="toctree-l1 current"><a class="reference internal" href="modules.html">darq</a><ul class="current">
 <li class="toctree-l2 current"><a class="current reference internal" href="#">darq package</a><ul>
@@ -238,6 +246,7 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="darq.utils.html#module-darq.utils.loader">darq.utils.loader module</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="darq.utils.html#darq.utils.loader.build_subject"><code class="docutils literal notranslate"><span class="pre">build_subject()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="darq.utils.html#darq.utils.loader.build_subject_list"><code class="docutils literal notranslate"><span class="pre">build_subject_list()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="darq.utils.html#module-darq.utils">Module contents</a></li>
@@ -271,17 +280,17 @@ settings, execution flags and hardware options.</p>
 <span id="darq-config-module"></span><h2>darq.config module<a class="headerlink" href="#module-darq.config" title="Link to this heading"></a></h2>
 <dl class="py function">
 <dt class="sig sig-object py" id="darq.config.get_device">
-<span class="sig-prename descclassname"><span class="pre">darq.config.</span></span><span class="sig-name descname"><span class="pre">get_device</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cpu_flag</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/darq/config.html#get_device"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#darq.config.get_device" title="Link to this definition"></a></dt>
-<dd><p>Return the computation device selected by the user.</p>
+<span class="sig-prename descclassname"><span class="pre">darq.config.</span></span><span class="sig-name descname"><span class="pre">get_device</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cpu_flag</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">requested_device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/darq/config.html#get_device"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#darq.config.get_device" title="Link to this definition"></a></dt>
+<dd><p>Resolve and validate the PyTorch execution device.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>cpu_flag</strong> (<em>bool</em>) – If True, force CPU execution. If False, select CUDA execution.</p>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>cpu_flag</strong> (<em>bool</em>)</p></li>
+<li><p><strong>requested_device</strong> (<em>str</em><em> | </em><em>None</em>)</p></li>
+</ul>
 </dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>Device string used by PyTorch, either <code class="docutils literal notranslate"><span class="pre">'cpu'</span></code> or <code class="docutils literal notranslate"><span class="pre">'cuda'</span></code>.</p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>str</p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>str</p>
 </dd>
 </dl>
 </dd></dl>
