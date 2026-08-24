@@ -6,7 +6,7 @@ from os.path import join, exists
 import shutil
 import numpy as np
 import torch
-from skimage.morphology import dilation, opening, ball
+from skimage.morphology import dilation, binary_opening, ball
 from sklearn.cluster import KMeans
 from sklearn.mixture import GaussianMixture as GMM
 from skimage import measure
@@ -73,7 +73,7 @@ def _get_dat_mask(dat_image: np.ndarray, v2r: np.ndarray) -> np.ndarray:
             break
 
     mask = (seg == np.unique(seg)[ordered[-1]]) & (img > 0)
-    mask = opening(mask, ball(3))
+    mask = binary_opening(mask, ball(3))
     blobs, n = _label_blobs(mask)
     counts = np.bincount(blobs.reshape(-1))
     for nb in range(1, n + 1):

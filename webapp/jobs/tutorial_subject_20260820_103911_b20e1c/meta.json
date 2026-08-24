@@ -1,0 +1,53 @@
+{
+  "job_id": "tutorial_subject_20260820_103911_b20e1c",
+  "pipeline": "darq",
+  "status": "completed",
+  "created_at": "2026-08-20T10:39:11",
+  "started_at": "2026-08-20T10:39:13",
+  "finished_at": "2026-08-20T10:51:23",
+  "inputs": {
+    "dat": "input/dat.nii.gz",
+    "mri": "input/mri.nii.gz",
+    "seg": "input/seg.nii.gz"
+  },
+  "outputs": {
+    "file_1": "output/0_dat.nii.gz",
+    "file_2": "output/0_desc-resampled_dat.nii.gz",
+    "sbr_tsv": "output/0_sbr.tsv",
+    "file_3": "output/0_space-T1w_aff.npy",
+    "file_4": "output/0_space-T1wdseg_rot.npy",
+    "file_5": "output/0_space-dat_rot.npy",
+    "file_6": "output/0_space-symmetricT1w_aff.npy",
+    "symmetry_tsv": "output/0_symm.tsv"
+  },
+  "error": null,
+  "progress": {
+    "step": 5,
+    "total_steps": 5,
+    "message": "MRI-DaT registration",
+    "updated_at": "2026-08-20T10:45:32"
+  },
+  "subject_id": "tutorial_subject",
+  "requested_device": "auto",
+  "execution_device": "cpu",
+  "device_decision": {
+    "execution_device": "cpu",
+    "cuda_available": false,
+    "gpu_index": null,
+    "gpu_name": null,
+    "free_gib": null,
+    "total_gib": null,
+    "required_gib": 6.0,
+    "safety_gib": 1.0,
+    "reason": "CUDA is not available. CPU selected.",
+    "reservation_id": null,
+    "reserved_gib": 0.0,
+    "reserved_gib_before": 0.0,
+    "real_available_gib": null,
+    "reservation_budget_gib": null,
+    "effective_available_gib": null,
+    "effective_free_gib": null,
+    "checked_gpu_indices": []
+  },
+  "gpu_reservation_active": false
+}

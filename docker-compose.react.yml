@@ -1,0 +1,81 @@
+services:
+  api:
+    build: .
+    entrypoint: []
+    command:
+      - python
+      - -m
+      - uvicorn
+      - webapp.api.main:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./webapp/jobs:/app/webapp/jobs
+    environment:
+      DARQ_JOBS_DIR: /app/webapp/jobs
+      PYTHONUNBUFFERED: "1"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health')"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    init: true
+    restart: unless-stopped
+
+  worker:
+    build: .
+    entrypoint: []
+    command:
+      - python
+      - -m
+      - webapp.worker.darq_worker
+    volumes:
+      - ./webapp/jobs:/app/webapp/jobs
+      - ./webapp/gpu_state:/app/webapp/gpu_state
+    environment:
+      DARQ_JOBS_DIR: /app/webapp/jobs
+
+      GPU_STATE_DIR: /app/webapp/gpu_state
+      GPU_RESERVATION_TTL_SECONDS: "21600"
+      GPU_LOCK_TIMEOUT_SECONDS: "10"
+
+      DARQ_GPU_REQUIRED_GIB: "6.0"
+      DARQ_GPU_SAFETY_GIB: "1.0"
+      DARQ_GPU_INDEX: "auto"
+
+      PYTHONUNBUFFERED: "1"
+
+    #deploy:
+      #resources:
+        #reservations:
+          #devices:
+            #- driver: nvidia
+              #count: all
+              #capabilities: [gpu]
+    init: true
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./webapp/react_frontend
+    ports:
+      - "7860:80"
+    volumes:
+      # Serve the existing Sphinx HTML under http://<host>:7860/documentation/
+      - ./docs/build/html:/usr/share/nginx/documentation:ro
+    depends_on:
+      api:
+        condition: service_healthy
+      worker:
+        condition: service_started
+    init: true
+    restart: unless-stopped

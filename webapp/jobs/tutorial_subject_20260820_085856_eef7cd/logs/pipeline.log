@@ -1,0 +1,90 @@
+DARQ pipeline execution
+========================================
+
+Started command:
+/usr/local/bin/python -u /app/scripts/dat2mri.py --dat /app/webapp/jobs/tutorial_subject_20260820_085856_eef7cd/input/dat.nii.gz --mri /app/webapp/jobs/tutorial_subject_20260820_085856_eef7cd/input/mri.nii.gz --seg /app/webapp/jobs/tutorial_subject_20260820_085856_eef7cd/input/seg.nii.gz --o /app/webapp/jobs/tutorial_subject_20260820_085856_eef7cd/output --force --device cpu
+
+Return code: 0
+
+STDOUT:
+TERM environment variable not set.
+
+
+# ------------------------- #
+# Running Dat2MRI algorithm #
+# ------------------------- #
+
+
+Execution device: cpu
+Total sessions to process: N=1
+
+Subject: 0  (1/1)
+ * Preprocessing.
+ * DaT symmetry and mask.
+ * MRI DaT simulation and mask.
+ * MRI-DaT registration.
+    Optimizer: LBFGS lr=0.1  max_iter=10
+    Losses: reg(w=1); reg_label(w=2); reg_uptake(w=0.0); reg_lr(w=0.5); regularizer(w=1)
+    ####################
+    # Training started #
+    ####################
+
+
+    * Epoch: 0
+      Epoch summary: loss_reg: 0.328,w_loss_reg: 0.328,loss_reg_label: 0.001,w_loss_reg_label: 0.003,loss_reg_lr: 0.0,w_loss_reg_lr: 0.0,loss_regularizer: 0.0,w_loss_regularizer: 0.0,loss: 0.331,time_duration (s): 47.199
+
+
+    * Epoch: 1
+      Epoch summary: loss_reg: 0.326,w_loss_reg: 0.326,loss_reg_label: 0.001,w_loss_reg_label: 0.003,loss_reg_lr: 0.001,w_loss_reg_lr: 0.0,loss_regularizer: 0.001,w_loss_regularizer: 0.001,loss: 0.33,time_duration (s): 46.62
+
+
+    * Epoch: 2
+      Epoch summary: loss_reg: 0.32,w_loss_reg: 0.32,loss_reg_label: 0.001,w_loss_reg_label: 0.003,loss_reg_lr: 0.001,w_loss_reg_lr: 0.0,loss_regularizer: 0.002,w_loss_regularizer: 0.002,loss: 0.325,time_duration (s): 36.936
+
+
+    * Epoch: 3
+      Epoch summary: loss_reg: 0.3,w_loss_reg: 0.3,loss_reg_label: 0.004,w_loss_reg_label: 0.007,loss_reg_lr: 0.001,w_loss_reg_lr: 0.0,loss_regularizer: 0.001,w_loss_regularizer: 0.001,loss: 0.309,time_duration (s): 45.118
+
+
+    * Epoch: 4
+      Epoch summary: loss_reg: 0.297,w_loss_reg: 0.297,loss_reg_label: 0.004,w_loss_reg_label: 0.008,loss_reg_lr: 0.001,w_loss_reg_lr: 0.0,loss_regularizer: 0.001,w_loss_regularizer: 0.001,loss: 0.306,time_duration (s): 37.121
+
+
+    * Epoch: 5
+      Epoch summary: loss_reg: 0.297,w_loss_reg: 0.297,loss_reg_label: 0.004,w_loss_reg_label: 0.008,loss_reg_lr: 0.001,w_loss_reg_lr: 0.0,loss_regularizer: 0.001,w_loss_regularizer: 0.001,loss: 0.306,time_duration (s): 40.067
+
+
+    * Epoch: 6
+      Epoch summary: loss_reg: 0.297,w_loss_reg: 0.297,loss_reg_label: 0.004,w_loss_reg_label: 0.008,loss_reg_lr: 0.001,w_loss_reg_lr: 0.0,loss_regularizer: 0.001,w_loss_regularizer: 0.001,loss: 0.306,time_duration (s): 44.825
+
+
+    * Epoch: 7
+      Epoch summary: loss_reg: 0.297,w_loss_reg: 0.297,loss_reg_label: 0.004,w_loss_reg_label: 0.008,loss_reg_lr: 0.001,w_loss_reg_lr: 0.0,loss_regularizer: 0.001,w_loss_regularizer: 0.001,loss: 0.306,time_duration (s): 37.461
+
+
+    * Epoch: 8
+      Epoch summary: loss_reg: 0.297,w_loss_reg: 0.297,loss_reg_label: 0.004,w_loss_reg_label: 0.008,loss_reg_lr: 0.001,w_loss_reg_lr: 0.0,loss_regularizer: 0.001,w_loss_regularizer: 0.001,loss: 0.306,time_duration (s): 22.764
+
+
+    #####################
+    # Training finished #
+    #####################
+
+
+    Final loss: 0.30627195760915277
+Done in 747.06s.
+
+
+
+Failed subjects: 0 / 1
+  (none)
+
+# ---------#
+# All DONE #
+# ---------#
+
+
+
+
+STDERR:
+
