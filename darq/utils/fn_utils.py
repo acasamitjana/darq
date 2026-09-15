@@ -1,4 +1,3 @@
-import pdb
 import re
 from typing import Any, List
 
@@ -1175,13 +1174,6 @@ class Symmetry(_Loss):
 
         image_flip = fast_3D_interp_field_torch(im, di, dj, dk, mode='linear')
         image_flip = torch.unsqueeze(torch.permute(image_flip, (3, 0, 1, 2)), 0)
-
-        # pdb.set_trace()
-        # import nibabel as nib
-        # img = nib.Nifti1Image(fn_utils.convert_to_numpy(image)[0, 0], self.v2r)
-        # nib.save(img, 'prova.nii.gz')
-        # img = nib.Nifti1Image(fn_utils.convert_to_numpy(image_flip)[0, 0], self.v2r)
-        # nib.save(img, 'prova_flip.nii.gz')
 
         loss = self.loss(image, image_flip)
         return loss

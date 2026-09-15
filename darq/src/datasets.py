@@ -1,5 +1,4 @@
 # py
-import pdb
 
 # third party imports
 import nibabel as nib
@@ -11,7 +10,7 @@ from sklearn.cluster import KMeans
 from sklearn.mixture import GaussianMixture as GMM
 
 # project imports
-from darq.utils.io import remove_synthseg_parcellation, remove_synthseg_hemisphere
+from darq.utils.io import remove_synthseg_hemisphere
 from darq.utils import fn_utils
 
 
@@ -81,7 +80,6 @@ class MRI_DaT(Dataset):
 
         subject['label_v2r'] = subject['label'].affine
         subject['label_image'] = np.array(subject['label'].dataobj)
-        # subject['label_image'] = remove_synthseg_parcellation(subject['label_image'])
         subject['label_image'] = remove_synthseg_hemisphere(subject['label_image'])
 
         if self.crop_labels:

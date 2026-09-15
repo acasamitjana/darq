@@ -1,5 +1,3 @@
-import pdb
-
 import nibabel as nib
 import numpy as np
 import torch
@@ -320,14 +318,6 @@ class AlignLR(Transform):
 
         _ = training_session.register({'mask': mask_tensor}, model, optimizer)
 
-        # pdb.set_trace()
-        # import nibabel as nib
-        # img = nib.Nifti1Image(np.transpose(mask, [1, 2, 3, 0]), v2r)
-        # nib.save(img, '~/Downloads/PD_tmp/_mask.nii.gz')
-        # img = nib.Nifti1Image(np.transpose(np.squeeze(dd['reg_mask'].cpu().detach().numpy()), [1, 2, 3, 0]), v2r)
-        # nib.save(img, '~/Downloads/PD_tmp/reg_mask.nii.gz')
-        # img = nib.Nifti1Image(np.transpose(np.squeeze(dd['reg_mask_flip'].cpu().detach().numpy()), [1, 2, 3, 0]),v2r)
-        # nib.save(img, '~/Downloads/PD_tmp/reg_mask_flip.nii.gz')
         return model['reg'].get_ras_matrix()[0].detach().cpu().numpy(), T_ref_cog
 
     def __call__(self, data_dict: dict, *args, **kwargs) -> dict:

@@ -1,13 +1,11 @@
 """Per-subject registration pipeline: preprocessing → simulation → alignment → save."""
 import copy
-import pdb
 import time
 from os import makedirs
 from os.path import join, exists
 import shutil
 import numpy as np
 import torch
-from scipy.ndimage import binary_fill_holes
 from skimage.morphology import binary_dilation, binary_opening, ball
 from sklearn.cluster import KMeans
 from sklearn.mixture import GaussianMixture as GMM
@@ -222,14 +220,6 @@ def process_subject(data_dict: dict, preproc_tf: dict, dat_tf: list,
         tag=run_info["tag"],
     )
 
-    # import nibabel as nib
-    # img = nib.Nifti1Image(data_dict['template_mri_mask_brain'], data_dict['template_v2r'])
-    # nib.save(img, '~/Downloads/PD_tmp/template_mri_mask_brain.nii.gz')
-    # img = nib.Nifti1Image(data_dict['template_dat_mask_brain'], data_dict['template_v2r'])
-    # nib.save(img, '~/Downloads/PD_tmp/template_dat_mask_brain.nii.gz')
-    # img = nib.Nifti1Image(data_dict['template_dat_image'], data_dict['template_v2r'])
-    # nib.save(img, '~/Downloads/PD_tmp/template_dat_image.nii.gz')
-    # pdb.set_trace()
     # get mri-simulated dat
     data_dict, mri_context = _simulate_dat_from_mri(
         data_dict=data_dict,
@@ -251,17 +241,6 @@ def process_subject(data_dict: dict, preproc_tf: dict, dat_tf: list,
         mri_context=mri_context,
         device=run_info["device"],
     )
-
-    # pdb.set_trace()
-    # import nibabel as nib
-    # img = nib.Nifti1Image(np.squeeze(tensor_dict['ref_image'].cpu().numpy()), data_dict['template_v2r'])
-    # nib.save(img, '~/Downloads/PD_tmp/ref_image.nii.gz')
-    # img = nib.Nifti1Image(np.squeeze(tensor_dict['flo_image'].cpu().numpy()), data_dict['template_v2r'])
-    # nib.save(img, '~/Downloads/PD_tmp/flo_image.nii.gz')
-    # img = nib.Nifti1Image(np.transpose(np.squeeze(tensor_dict['flo_mask'].cpu().numpy()), axes=[1, 2, 3, 0]), data_dict['template_v2r'])
-    # nib.save(img, '~/Downloads/PD_tmp/flo_mask.nii.gz')
-    # img = nib.Nifti1Image(np.transpose(np.squeeze(tensor_dict['ref_mask'].cpu().numpy()), axes=[1, 2, 3, 0]), data_dict['template_v2r'])
-    # nib.save(img, '~/Downloads/PD_tmp/ref_mask.nii.gz')
 
     tensor_dict = _run_registration_step(
         tensor_dict=tensor_dict,
@@ -367,14 +346,6 @@ def _build_dat_symmetry_and_masks(data_dict: dict, mri_brain_mask: np.ndarray, m
         reference_mask=mri_str_mask,
         dat_v2r=template_v2r
     )
-    #
-    # pdb.set_trace()
-    # import nibabel as nib
-    # img = nib.Nifti1Image(dat_symm_str_mask, template_v2r)
-    # nib.save(img, '~/Downloads/PD_tmp/dat_symm_str_mask.nii.gz')
-    # img = nib.Nifti1Image(dat_brain_mask, template_v2r)
-    # nib.save(img, '~/Downloads/PD_tmp/dat_brain_mask.nii.gz')
-
     return {
         "template_v2r": template_v2r,
         "dat_raw": dat_raw,
@@ -467,13 +438,6 @@ def _estimate_dat_brain(dat_symm: np.ndarray,
         if np.prod(dat_res) * np.sum(brain_dat) > np.sum(reference_mask):
             break
 
-    # pdb.set_trace()
-    # brain_dat = binary_fill_holes(brain_dat, structure=np.ones((3, 3, 3))).astype('float')
-    # import nibabel as nib
-    # img = nib.Nifti1Image(brain_dat.astype('float'), dat_v2r)
-    # nib.save(img, '~/Downloads/PD_tmp/brain_dat.nii.gz')
-    # img = nib.Nifti1Image(dat_symm, dat_v2r)
-    # nib.save(img, '~/Downloads/PD_tmp/dat_symm.nii.gz')
     return brain_dat
 
 
