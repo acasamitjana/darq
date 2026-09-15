@@ -1,3 +1,4 @@
+import pdb
 import time
 
 import torch
@@ -775,7 +776,8 @@ class JointInstanceReg(JointInstanceAlign):
         # Registration
         SIM_label_loss = 0.
         if self.loss_dict['reg_label']['weight'] > 0:
-            SIM_label_loss = self.loss_dict['reg_label']['loss'](data_dict['reg_mask'], data_dict['ref_mask'],
+            SIM_label_loss = self.loss_dict['reg_label']['loss'](data_dict['reg_mask'][:, :data_dict['ref_mask'].shape[1]],
+                                                                 data_dict['ref_mask'],
                                                                  v2r=data_dict['template_v2r'])
             log_dict['loss_' + self.loss_dict['reg_label']['loss'].name] = SIM_label_loss.item()
             SIM_label_loss = self.loss_dict['reg_label']['weight'] * SIM_label_loss
@@ -784,7 +786,7 @@ class JointInstanceReg(JointInstanceAlign):
         # Registration
         SYM_loss = 0.
         if self.loss_dict['reg_lr']['weight'] > 0:
-            SYM_loss = self.loss_dict['reg_lr']['loss'](data_dict['reg_image'])
+            SYM_loss = self.loss_dict['reg_lr']['loss'](data_dict['reg_mask'][:, data_dict['ref_mask'].shape[1]:])
             log_dict['loss_' + self.loss_dict['reg_lr']['loss'].name] = SYM_loss.item()
             SYM_loss = self.loss_dict['reg_lr']['weight'] * SYM_loss
             log_dict['w_loss_' + self.loss_dict['reg_lr']['loss'].name] = SYM_loss.item()

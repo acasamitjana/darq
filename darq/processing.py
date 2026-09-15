@@ -1,11 +1,13 @@
 """Per-subject registration pipeline: preprocessing → simulation → alignment → save."""
 import copy
+import pdb
 import time
 from os import makedirs
 from os.path import join, exists
 import shutil
 import numpy as np
 import torch
+from scipy.ndimage import binary_fill_holes
 from skimage.morphology import binary_dilation, binary_opening, ball
 from sklearn.cluster import KMeans
 from sklearn.mixture import GaussianMixture as GMM
@@ -212,6 +214,7 @@ def process_subject(data_dict: dict, preproc_tf: dict, dat_tf: list,
 
     t0 = time.time()
 
+    # pre-process: alignment LR
     data_dict = _run_preprocessing_step(
         data_dict=data_dict,
         preproc_tf=preproc_tf,
@@ -219,14 +222,28 @@ def process_subject(data_dict: dict, preproc_tf: dict, dat_tf: list,
         tag=run_info["tag"],
     )
 
-    dat_context = _build_dat_symmetry_and_masks(data_dict)
-
+    # import nibabel as nib
+    # img = nib.Nifti1Image(data_dict['template_mri_mask_brain'], data_dict['template_v2r'])
+    # nib.save(img, '~/Downloads/PD_tmp/template_mri_mask_brain.nii.gz')
+    # img = nib.Nifti1Image(data_dict['template_dat_mask_brain'], data_dict['template_v2r'])
+    # nib.save(img, '~/Downloads/PD_tmp/template_dat_mask_brain.nii.gz')
+    # img = nib.Nifti1Image(data_dict['template_dat_image'], data_dict['template_v2r'])
+    # nib.save(img, '~/Downloads/PD_tmp/template_dat_image.nii.gz')
+    # pdb.set_trace()
+    # get mri-simulated dat
     data_dict, mri_context = _simulate_dat_from_mri(
         data_dict=data_dict,
         dat_tf=dat_tf,
-        template_v2r=dat_context["template_v2r"],
-        dat_mask=dat_context["dat_mask"],
+        template_v2r=data_dict["template_v2r"],
     )
+
+    # get dat symmetry image and dat str segmentation
+    dat_context = _build_dat_symmetry_and_masks(data_dict,
+                                                mri_brain_mask=data_dict["template_mri_mask_brain"] > 0,
+                                                mri_str_mask=mri_context["sim_dat_str_mask"] > 0)
+
+    dat_context['tx_init'] = _estimate_initial_translation(mri_context['sim_dat_str_mask'],
+                                                           dat_context['dat_str_mask'])
 
     tensor_dict = _build_registration_tensors(
         data_dict=data_dict,
@@ -235,11 +252,21 @@ def process_subject(data_dict: dict, preproc_tf: dict, dat_tf: list,
         device=run_info["device"],
     )
 
+    # pdb.set_trace()
+    # import nibabel as nib
+    # img = nib.Nifti1Image(np.squeeze(tensor_dict['ref_image'].cpu().numpy()), data_dict['template_v2r'])
+    # nib.save(img, '~/Downloads/PD_tmp/ref_image.nii.gz')
+    # img = nib.Nifti1Image(np.squeeze(tensor_dict['flo_image'].cpu().numpy()), data_dict['template_v2r'])
+    # nib.save(img, '~/Downloads/PD_tmp/flo_image.nii.gz')
+    # img = nib.Nifti1Image(np.transpose(np.squeeze(tensor_dict['flo_mask'].cpu().numpy()), axes=[1, 2, 3, 0]), data_dict['template_v2r'])
+    # nib.save(img, '~/Downloads/PD_tmp/flo_mask.nii.gz')
+    # img = nib.Nifti1Image(np.transpose(np.squeeze(tensor_dict['ref_mask'].cpu().numpy()), axes=[1, 2, 3, 0]), data_dict['template_v2r'])
+    # nib.save(img, '~/Downloads/PD_tmp/ref_mask.nii.gz')
+
     tensor_dict = _run_registration_step(
         tensor_dict=tensor_dict,
         data_dict=data_dict,
         dat_context=dat_context,
-        mri_context=mri_context,
         main_dict=main_dict,
         args=args,
         device=run_info["device"],
@@ -289,8 +316,12 @@ def _run_preprocessing_step(data_dict: dict, preproc_tf: dict,
     """Apply preprocessing transforms and save rotation matrices."""
     print(" * Preprocessing.")
 
-    for transform in preproc_tf.values():
+    import time
+    for key_tf, transform in preproc_tf.items():
+        time_0 = time.time()
         data_dict = transform(data_dict)
+        print('     -> ', key_tf, ' took ', time.time() - time_0)
+
 
     np.save(join(output_dir, tag + "_space-T1wdseg_rot.npy"),
             data_dict["rot_label_v2r"])
@@ -300,31 +331,58 @@ def _run_preprocessing_step(data_dict: dict, preproc_tf: dict,
 
     return data_dict
 
-def _build_dat_symmetry_and_masks(data_dict: dict) -> dict:
+def _build_dat_symmetry_and_masks(data_dict: dict, mri_brain_mask: np.ndarray, mri_str_mask: np.ndarray) -> dict:
     """Create symmetric DaT image, striatal DaT mask and DaT brain foreground."""
     print(" * DaT symmetry and mask.")
 
     template_v2r = data_dict["template_v2r"]
+    orig_dat_brain_mask = data_dict["template_dat_mask_brain"] > 0
     dat_raw = data_dict["template_dat_image"]
 
-    dat_symm = _compute_symmetric_dat(dat_raw, template_v2r)
-    cuboid = _build_dat_prior_cuboid(dat_symm, template_v2r)
+    # min-max normalization of the dat image within brain tissue
+    dat_image = _normalize_dat_inside_mask(dat_raw, orig_dat_brain_mask)
 
-    dat_mask = _build_symmetric_dat_mask(dat_raw, template_v2r, cuboid)
-    dat_image = _normalize_dat_inside_mask(dat_raw, dat_mask)
+    # dat symmetry for striatum computation
+    dat_symm = _compute_symmetric_dat(dat_image, template_v2r)
 
-    brain_dat = _estimate_dat_brain_foreground(
+    # dat symmetry for striatum computation
+    dat_brain_mask = _estimate_dat_brain(
         dat_symm=dat_symm,
-        reference_brain_mask=data_dict["template_mask_brain"],
+        dat_mask=orig_dat_brain_mask,
+        reference_mask=mri_brain_mask,
+        dat_v2r=template_v2r
     )
+
+    # dat symmetry for striatum computation
+    dat_symm_str_mask = _estimate_dat_striatum(
+        dat_symm=dat_symm,
+        dat_mask=orig_dat_brain_mask,
+        reference_mask=mri_str_mask,
+        dat_v2r=template_v2r
+    )
+
+    dat_str_mask = _estimate_dat_striatum(
+        dat_symm=dat_image,
+        dat_mask=orig_dat_brain_mask,
+        reference_mask=mri_str_mask,
+        dat_v2r=template_v2r
+    )
+    #
+    # pdb.set_trace()
+    # import nibabel as nib
+    # img = nib.Nifti1Image(dat_symm_str_mask, template_v2r)
+    # nib.save(img, '~/Downloads/PD_tmp/dat_symm_str_mask.nii.gz')
+    # img = nib.Nifti1Image(dat_brain_mask, template_v2r)
+    # nib.save(img, '~/Downloads/PD_tmp/dat_brain_mask.nii.gz')
 
     return {
         "template_v2r": template_v2r,
         "dat_raw": dat_raw,
-        "dat_symm": dat_symm,
-        "dat_mask": dat_mask,
         "dat_image": dat_image,
-        "brain_dat": brain_dat,
+        "dat_symm": dat_symm,
+        "dat_brain_mask": dat_brain_mask,
+        "dat_str_mask": dat_str_mask,
+        "dat_symm_str_mask": dat_symm_str_mask,
     }
 
 
@@ -356,9 +414,8 @@ def _build_symmetric_dat_mask(dat_raw: np.ndarray,
                               cuboid: np.ndarray) -> np.ndarray:
     """Create a DaT mask using the raw image and its flipped counterpart."""
     mask_raw = _get_dat_mask_prior(dat_raw, cuboid, percentage=1)
-    mask_flip = _flip_dat(mask_raw, template_v2r, agg="flip")
 
-    return (mask_raw + mask_flip) > 0
+    return _compute_symmetric_dat(mask_raw, template_v2r) > 0
 
 
 def _normalize_dat_inside_mask(dat_raw: np.ndarray, dat_mask: np.ndarray) -> np.ndarray:
@@ -371,54 +428,120 @@ def _normalize_dat_inside_mask(dat_raw: np.ndarray, dat_mask: np.ndarray) -> np.
 
     return dat_image
 
+def _estimate_dat_brain(dat_symm: np.ndarray,
+                           dat_mask: np.ndarray,
+                           reference_mask: np.ndarray,
+                           dat_v2r: np.ndarray,
+                           n_clusters: int=6) -> np.ndarray:
 
-def _estimate_dat_brain_foreground(dat_symm: np.ndarray,
-                                   reference_brain_mask: np.ndarray) -> np.ndarray:
     """Estimate DaT foreground using GMM clusters and the MRI brain-mask size."""
-    n_clusters = 6
-
-    dat_seg = GMM(n_components=n_clusters, random_state=0).fit_predict(
-        dat_symm.reshape(-1, 1)
+    dat_res = float(np.prod(np.sqrt(np.sum(dat_v2r * dat_v2r, axis=0))[:-1]))
+    intensities = dat_symm[dat_mask]
+    intensities_seg = GMM(n_components=n_clusters, random_state=0).fit_predict(
+        intensities.reshape(-1, 1)
     )
-    dat_seg = dat_seg.reshape(dat_symm.shape)
+    dat_seg = np.zeros_like(dat_symm)
+    dat_seg[dat_mask] = intensities_seg
 
     labels = np.unique(dat_seg)
     means = [np.mean(dat_symm[dat_seg == label]) for label in labels]
     ordered_labels = labels[np.argsort(means)]
 
     brain_dat = np.zeros_like(dat_symm)
+    for it_label, label in enumerate(ordered_labels[1:][::-1]):  # skip background cluster
+        # remove blobs
+        cluster_mask = dat_seg == label
+        blobs, num = measure.label(cluster_mask, connectivity=2, return_num=True)
+        counts = np.bincount(blobs.reshape(-1))
+        largest_counts = np.argsort(counts)[::-1]
+        final_cluster_mask = np.zeros_like(cluster_mask)
+        for nb in range(1, num + 1):
+            coord = _blob_centre(blobs, largest_counts[nb], dat_v2r)
+            if counts[largest_counts[nb]] < 500 or np.abs(coord[0]) > 35 or coord[2] < -40:
+                continue
 
-    for label in ordered_labels[1:][::-1]:  # skip background cluster
-        brain_dat[dat_seg == label] = 1
+            final_cluster_mask[blobs == largest_counts[nb]] = 1
 
-        if np.sum(brain_dat) > 2 * np.sum(reference_brain_mask):
+        brain_dat[final_cluster_mask] = 1
+
+        if np.prod(dat_res) * np.sum(brain_dat) > np.sum(reference_mask):
             break
 
+    # pdb.set_trace()
+    # brain_dat = binary_fill_holes(brain_dat, structure=np.ones((3, 3, 3))).astype('float')
+    # import nibabel as nib
+    # img = nib.Nifti1Image(brain_dat.astype('float'), dat_v2r)
+    # nib.save(img, '~/Downloads/PD_tmp/brain_dat.nii.gz')
+    # img = nib.Nifti1Image(dat_symm, dat_v2r)
+    # nib.save(img, '~/Downloads/PD_tmp/dat_symm.nii.gz')
     return brain_dat
 
+
+def _estimate_dat_striatum(dat_symm: np.ndarray,
+                           dat_mask: np.ndarray,
+                           reference_mask: np.ndarray,
+                           dat_v2r: np.ndarray,
+                           n_clusters: int=6) -> np.ndarray:
+    """Estimate DaT foreground using GMM clusters and the MRI brain-mask size."""
+    dat_res = float(np.prod(np.sqrt(np.sum(dat_v2r * dat_v2r, axis=0))[:-1]))
+    intensities = dat_symm[dat_mask]
+    intensities_seg = GMM(n_components=n_clusters, random_state=0).fit_predict(
+        intensities.reshape(-1, 1)
+    )
+    dat_seg = np.zeros_like(dat_symm)
+    dat_seg[dat_mask] = intensities_seg
+
+    labels = np.unique(dat_seg)
+    means = [np.mean(dat_symm[dat_seg == label]) for label in labels]
+    ordered_labels = labels[np.argsort(means)]
+
+    brain_dat = np.zeros_like(dat_symm)
+    brain_dat[dat_seg == ordered_labels[-1]] = 1
+    for label in ordered_labels[1:][::-1]:  # skip background cluster
+        if (np.sum(brain_dat) > 2 * np.sum(reference_mask) or
+                np.sum(np.sum(dat_seg == label)) > 2 * np.sum(reference_mask)):
+            break
+
+        brain_dat[dat_seg == label] = 1
+
+    #remove blobs
+    blobs, num = measure.label(brain_dat, connectivity=2, return_num=True)
+    counts = np.bincount(blobs.reshape(-1))
+    largest_counts = np.argsort(counts)[::-1]
+    final_brain_dat = np.zeros_like(brain_dat)
+    for nb in range(1, num + 1):
+        coord = _blob_centre(blobs, largest_counts[nb], dat_v2r)
+        if counts[largest_counts[nb]] < 500 or np.abs(coord[0]) > 35 or coord[2] < -40:
+            continue
+
+        final_brain_dat[blobs == largest_counts[nb]] = 1
+        if np.sum(final_brain_dat) * dat_res > 2e6:  # 2000 mm3 do not exceed brain size (probably does not have any effect)
+            break
+
+    return final_brain_dat
+
 def _simulate_dat_from_mri(data_dict: dict, dat_tf: list,
-                           template_v2r: np.ndarray,
-                           dat_mask: np.ndarray) -> tuple[dict, dict]:
-    """Simulate a DaT-like MRI mask and estimate the initial translation."""
+                           template_v2r: np.ndarray) -> tuple[dict, dict]:
+    """Simulate a DaT-like MRI mask"""
     print(" * MRI DaT simulation and mask.")
 
     data_dict = {
         **data_dict,
-        "simulated_dat": data_dict["template_mask_str"],
+        "simulated_dat": data_dict["template_mri_mask_str"],
         "v2r": template_v2r,
     }
 
     for transform in dat_tf:
         data_dict = transform(data_dict)
 
+
     mri_mask, sim_dat = _build_mri_dat_mask(data_dict["simulated_dat"])
-    tx_init = _estimate_initial_translation(mri_mask, dat_mask)
 
     return data_dict, {
-        "mri_mask": mri_mask,
-        "sim_dat": sim_dat,
-        "tx_init": tx_init,
+        "sim_dat_str_mask": mri_mask,
+        "sim_dat_image": sim_dat,
     }
+
 
 
 def _build_mri_dat_mask(simulated_dat: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -449,17 +572,17 @@ def _estimate_initial_translation(mri_mask: np.ndarray,
     return dat_cog - mri_cog
 
 def _build_registration_tensors(data_dict: dict,
-                                dat_context: dict,
                                 mri_context: dict,
+                                dat_context: dict,
                                 device: str) -> dict:
     """Build PyTorch tensors required by the registration model."""
-    template_v2r = dat_context["template_v2r"]
+    template_v2r = data_dict["template_v2r"]
 
     ref_mask = (
         np.stack(
             [
-                data_dict["template_mask_brain"],
-                data_dict["template_mask_occ"],
+                data_dict["template_mri_mask_brain"],
+                data_dict["template_mri_mask_occ"],
             ],
             axis=0,
         )[np.newaxis] > 0.5
@@ -468,8 +591,10 @@ def _build_registration_tensors(data_dict: dict,
     flo_mask = (
         np.stack(
             [
-                dat_context["brain_dat"],
-                dat_context["brain_dat"],
+                dat_context["dat_brain_mask"],
+                dat_context["dat_brain_mask"],
+                dat_context["dat_brain_mask"],
+                dat_context["dat_str_mask"],
             ],
             axis=0,
         )[np.newaxis] > 0.5
@@ -477,7 +602,7 @@ def _build_registration_tensors(data_dict: dict,
 
     return {
         "ref_image": torch.as_tensor(
-            mri_context["mri_mask"][np.newaxis, np.newaxis],
+            mri_context["sim_dat_str_mask"][np.newaxis, np.newaxis],
             dtype=torch.float,
         ).to(device),
 
@@ -487,7 +612,7 @@ def _build_registration_tensors(data_dict: dict,
         ).to(device),
 
         "flo_image": torch.as_tensor(
-            dat_context["dat_mask"][np.newaxis, np.newaxis],
+            dat_context["dat_symm_str_mask"][np.newaxis, np.newaxis],
             dtype=torch.float,
         ).to(device),
 
@@ -503,7 +628,6 @@ def _build_registration_tensors(data_dict: dict,
 def _run_registration_step(tensor_dict: dict,
                            data_dict: dict,
                            dat_context: dict,
-                           mri_context: dict,
                            main_dict: dict,
                            args,
                            device: str) -> dict:
@@ -517,8 +641,8 @@ def _run_registration_step(tensor_dict: dict,
         ref_v2r=template_v2r.astype("float32"),
         flo_v2r=template_v2r.astype("float32"),
         tx_factor=np.array([10, 1 / 1000, 1 / 1000]),
-        angle_factor=np.array([1 / 100, 1, 1]),
-        tx_init=mri_context["tx_init"],
+        angle_factor=np.array([1, 1, 1]),
+        tx_init=dat_context["tx_init"],
         device=device,
     ).to(device)
 

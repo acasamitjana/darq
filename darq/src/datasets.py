@@ -1,11 +1,12 @@
 # py
+import pdb
 
 # third party imports
 import nibabel as nib
 from torch.utils.data import Dataset
 import numpy as np
 from skimage.morphology import binary_opening
-from skimage import filters
+from skimage import filters, measure
 from sklearn.cluster import KMeans
 from sklearn.mixture import GaussianMixture as GMM
 
@@ -79,9 +80,8 @@ class MRI_DaT(Dataset):
             print(subject['mri'].affine)
 
         subject['label_v2r'] = subject['label'].affine
-
         subject['label_image'] = np.array(subject['label'].dataobj)
-        subject['label_image'] = remove_synthseg_parcellation(subject['label_image'])
+        # subject['label_image'] = remove_synthseg_parcellation(subject['label_image'])
         subject['label_image'] = remove_synthseg_hemisphere(subject['label_image'])
 
         if self.crop_labels:
@@ -94,22 +94,68 @@ class MRI_DaT(Dataset):
             subject['label_v2r'] = subject['label_v2r'] @ T_crop
             subject['label_crop'] = T_crop
 
-        subject['mri'] = fn_utils.vol_resample_fast(nib.Nifti1Image(subject['label_image'], subject['label_v2r']), subject['mri'])
+        subject['mri'] = fn_utils.vol_resample_fast(nib.Nifti1Image(subject['label_image'], subject['label_v2r']), subject['mri'], mode='nearest')
         subject['mri_image'] = np.array(subject['mri'].dataobj)
-        subject['mask_str'], subject['mask_occ'] = self._get_ROI_masks(subject['label_image'])
+        subject['mri_mask_str'], subject['mri_mask_occ'] = self._get_ROI_masks(subject['label_image'])
         non_cerebrum = (subject['label_image'] <= 0) | (subject['label_image'] == 7) | (subject['label_image'] == 8) | (subject['label_image'] == 46) | (subject['label_image'] == 47) | (subject['label_image'] == 15) | (subject['label_image'] == 16) | (subject['label_image'] == 24)
-        subject['mask_brain'] = (1 - non_cerebrum).astype('float')
-        subject['mask_cau'] = (subject['label_image'] == 11).astype('float')
-        subject['mask_pu'] = (subject['label_image'] == 12).astype('float')
+        subject['mri_mask_brain'] = (1 - non_cerebrum).astype('float')
+        subject['mri_mask_cau'] = (subject['label_image'] == 11).astype('float')
+        subject['mri_mask_pu'] = (subject['label_image'] == 12).astype('float')
 
-
-        dat_image = np.squeeze(np.array(subject['dat'].dataobj).astype('float32'))
+        # get image info
         dat_v2r = subject['dat'].affine
+        dat_res = np.sqrt(np.sum(dat_v2r * dat_v2r, axis=0))[:-1]
+        mri_res = np.sqrt(np.sum(subject['label_v2r'] * subject['label_v2r'], axis=0))[:-1]
+
+        # get brain segmentation from DaT image
+        dat_image = np.squeeze(np.array(subject['dat'].dataobj).astype('float32'))
+        n_clusters = 6
+        dat_seg = GMM(n_components=n_clusters, random_state=0).fit_predict(dat_image.reshape((-1, 1)))
+        dat_seg = dat_seg.reshape(dat_image.shape)
+        dat_roi_means = [np.mean(dat_image[dat_seg == ul]) for ul in np.unique(dat_seg)]
+        dat_rois_ordered = np.argsort(dat_roi_means)
+
+        dat_str = np.zeros(dat_image.shape)
+        dat_str[dat_seg == dat_rois_ordered[-1]] = 1
+        dat_brain = np.zeros(dat_image.shape)
+
+        dat_brain[dat_seg == dat_rois_ordered[-1]] = 1
+        dat_rois_ordered = dat_rois_ordered[1:-1]
+        for i, i_k in enumerate(dat_rois_ordered[::-1]):
+            dat_brain[dat_seg == i_k] = 1
+            if np.prod(dat_res) * np.sum(dat_brain) > 1.25 * np.prod(mri_res) * np.sum(subject['mri_mask_brain']):
+                break
+
+        blobs, num = measure.label(dat_str, connectivity=2, return_num=True)
+        counts = np.bincount(blobs.reshape(-1))
+        largest_counts = np.argsort(counts)[::-1]
+        counts_min_mean = np.argmin([np.mean(dat_image[blobs == ul]) for ul in range(num)])
+        final_dat_str = np.zeros_like(dat_str)
+        for nb in range(0, num + 1):
+            if largest_counts[nb] == counts_min_mean or counts[largest_counts[nb]]*np.prod(dat_res) < 1000:  # i.e., background
+                continue
+            final_dat_str[blobs == largest_counts[nb]] = 1
+            if np.sum(final_dat_str) * np.prod(dat_res) > 1.25 * np.sum(subject['mri_mask_str']):
+                break
+
+        blobs, num = measure.label(dat_brain, connectivity=2, return_num=True)
+        counts = np.bincount(blobs.reshape(-1))
+        largest_counts = np.argsort(counts)[::-1]
+        counts_min_mean = np.argmin([np.mean(dat_image[blobs == ul]) for ul in range(num)])
+        final_dat_brain = np.zeros_like(dat_brain)
+        for nb in range(0, num + 1):
+            if largest_counts[nb] == counts_min_mean: #i.e., background
+                continue
+            final_dat_brain[blobs == largest_counts[nb]] = 1
+            if np.sum(final_dat_brain)*np.prod(dat_res) > 2e6: # 2000 mm3
+                break
+
+        # crop dat brain image
         if self.crop_dat:
-            Crop_th = filters.threshold_otsu(dat_image)
-            mask_crop = binary_opening(dat_image > Crop_th, np.ones((3, 3, 3))).astype('float32')
-            _, crop_coords = fn_utils.crop_label(mask_crop, margin=15, threshold=0)
+            margin = [int(np.ceil(15/d)) for d in dat_res]
+            final_dat_brain, crop_coords = fn_utils.crop_label(final_dat_brain, margin=margin, threshold=0)
             dat_image = fn_utils.apply_crop(dat_image, crop_coords)
+            final_dat_str = fn_utils.apply_crop(final_dat_str, crop_coords)
             tx_crop = np.array([crop_coords[0][0], crop_coords[1][0], crop_coords[2][0], 1])
             T_crop = np.eye(4)
             T_crop[0, 3] = tx_crop[0]
@@ -118,26 +164,9 @@ class MRI_DaT(Dataset):
             dat_v2r = dat_v2r @ T_crop
             subject['dat_crop'] = T_crop
 
-        dat_res = np.sqrt(np.sum(dat_v2r * dat_v2r, axis=0))[:-1]
-        mri_res = np.sqrt(np.sum(subject['label_v2r'] * subject['label_v2r'], axis=0))[:-1]
-        n_clusters = 6
-        dat_seg = GMM(n_components=n_clusters, random_state=0).fit_predict(dat_image.reshape((-1, 1)))
-        dat_seg = dat_seg.reshape(dat_image.shape)
-        dat_roi_means = [np.mean(dat_image[dat_seg == ul]) for ul in np.unique(dat_seg)]
-        dat_rois_ordered = np.argsort(dat_roi_means)
-
-        dat_brain = np.zeros(dat_image.shape + (1, ))
-        dat_brain[dat_seg == dat_rois_ordered[-1], 0] = 1
-        dat_rois_ordered = dat_rois_ordered[1:-1] 
-        for i, i_k in enumerate(dat_rois_ordered[::-1]):
-            dat_brain[dat_seg == i_k, 0] = 1
-            if np.prod(dat_res) * np.sum(dat_brain[..., 0]) > 2 * np.prod(mri_res) * np.sum(subject['mask_brain']):
-                break
-
-
         subject['dat_image'] = dat_image
-        subject['dat_str'] = dat_brain
-        subject['dat_brain'] = dat_brain
+        subject['dat_mask_str'] = final_dat_str
+        subject['dat_mask_brain'] = final_dat_brain
         subject['dat_v2r'] = dat_v2r
 
         for data_tf in self.transforms:

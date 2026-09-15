@@ -1,3 +1,5 @@
+import pdb
+
 import nibabel as nib
 import numpy as np
 import torch
@@ -91,47 +93,58 @@ class GaussianBlur(Transform):
         self.mask_key = mask_key
         self.sigma = sigma
         self.normalize_area = kwargs['normalize_area'] if 'normalize_area' in kwargs.keys() else False
+        self._filter_cache = {}
 
-    def _gaussian_filter_3d(self,sigma: np.ndarray, channels: int = 1, truncate: int = 4,) -> torch.nn.Conv3d:
-        """Create a fixed 3D Gaussian filter implemented as a PyTorch convolution.
+    def _gaussian_kernel_1d(self, sigma: float, truncate: int = 4) -> torch.Tensor:
+        """Build a single-axis Gaussian kernel, normalized like the joint 3D kernel.
+
+        A 3D Gaussian is separable (the product of three 1D Gaussians), so applying this
+        kernel along each axis in turn is mathematically equivalent to a single dense 3D
+        convolution, but at O(3k) cost per voxel instead of O(k^3).
+
+        :param sigma: Gaussian standard deviation along this axis.
+        :param truncate: Kernel radius expressed as a multiple of sigma.
+
+        :return: 1D Gaussian kernel tensor of length ``2*round(sigma*truncate)+1``.
+        """
+
+        radius = round(sigma * truncate)
+        x = torch.arange(-radius, radius + 1, dtype=torch.float32)
+        kernel = torch.exp(-x ** 2 / (2 * sigma ** 2))
+        kernel /= torch.max(kernel)
+        # Make sure sum of values in gaussian kernel equals 1.
+        if self.normalize_area:
+            kernel = kernel / torch.sum(kernel)
+
+        return kernel
+
+    def _gaussian_filter_3d(self, sigma: np.ndarray, channels: int = 1, truncate: int = 4,) -> list[torch.nn.Conv3d]:
+        """Create a separable 3D Gaussian filter as three depthwise 1D convolutions.
 
         :param sigma: Gaussian standard deviation for each spatial axis.
         :param channels: Number of channels processed independently by the depthwise filter.
         :param truncate: Kernel radius expressed as a multiple of sigma.
 
-        :return: Configured ``torch.nn.Conv3d`` module with frozen Gaussian weights.
+        :return: List of three ``torch.nn.Conv3d`` modules with frozen Gaussian weights, applied
+            in order along axes 0, 1 and 2.
         """
 
-        # Set these to whatever you want for your gaussian filter
-        kernel_size = tuple([2*round(s*truncate)+1 for s in sigma])
+        filters = []
+        for axis in range(3):
+            kernel_1d = self._gaussian_kernel_1d(sigma[axis], truncate)
 
-        # Create a x, y coordinate grid of shape (kernel_size, kernel_size, 2)
-        II, JJ, KK = torch.meshgrid([torch.arange(0, kernel_size[0]), torch.arange(0, kernel_size[1]), torch.arange(0, kernel_size[2])], indexing='ij')
-        grid = torch.stack([II, JJ, KK], dim=-1)
+            kernel_size = [1, 1, 1]
+            kernel_size[axis] = kernel_1d.numel()
+            gaussian_kernel = kernel_1d.view(1, 1, *kernel_size).repeat(channels, 1, 1, 1, 1)
 
-        mean = torch.from_numpy(np.array([(k - 1) / 2. for k in kernel_size]).reshape((1, 1, 1, 3)))
-        variance = torch.from_numpy(((sigma ** 2.).reshape((1, 1, 1, 3))))
+            gaussian_filter = torch.nn.Conv3d(in_channels=channels, out_channels=channels, kernel_size=kernel_size,
+                                              padding='same', groups=channels, bias=False)
 
-        # Calculate the 2-dimensional gaussian kernel which is
-        # the product of two gaussian distributions for two different
-        # variables (in this case called x and y)
-        gaussian_kernel = (1. / ((2. * torch.pi * torch.prod(variance)))**(1/3)) * torch.exp(-torch.sum((grid - mean) ** 2. / (2 * variance), dim=-1))
-        gaussian_kernel /= torch.max(gaussian_kernel)
-        # Make sure sum of values in gaussian kernel equals 1.
-        if self.normalize_area:
-            gaussian_kernel = gaussian_kernel / torch.sum(gaussian_kernel)
+            gaussian_filter.weight.data = gaussian_kernel
+            gaussian_filter.weight.requires_grad = False
+            filters.append(gaussian_filter)
 
-        # Reshape to 3d depthwise convolutional weight
-        gaussian_kernel = gaussian_kernel.view(1, 1, *kernel_size)
-        gaussian_kernel = gaussian_kernel.repeat(channels, 1, 1, 1, 1)
-
-        gaussian_filter = torch.nn.Conv3d(in_channels=channels, out_channels=channels, kernel_size=kernel_size,
-                                          padding='same', groups=channels, bias=False)
-
-        gaussian_filter.weight.data = gaussian_kernel.float()
-        gaussian_filter.weight.requires_grad = False
-
-        return gaussian_filter
+        return filters
 
     def _blur(self, image: torch.Tensor, mask: torch.Tensor | None = None) -> torch.Tensor:
         """Blur an image tensor using the configured Gaussian kernel.
@@ -147,10 +160,15 @@ class GaussianBlur(Transform):
         else:
             sigma = self.sigma
 
-        filt = self._gaussian_filter_3d(sigma)
-        filt = filt.to(image.device)
+        cache_key = tuple(np.asarray(sigma).tolist())
+        if cache_key not in self._filter_cache:
+            self._filter_cache[cache_key] = self._gaussian_filter_3d(np.asarray(sigma))
 
-        return filt(image.clone())
+        out = image
+        for filt in self._filter_cache[cache_key]:
+            out = filt.to(out.device)(out)
+
+        return out
 
     def __call__(self, data_dict: dict, *args, **kwargs) -> dict:
         """Apply Gaussian smoothing to each configured dictionary entry.
@@ -166,14 +184,6 @@ class GaussianBlur(Transform):
             image_shape = image.shape
             if len(image_shape) == 3:
                 image = torch.unsqueeze(torch.unsqueeze(image, 0), 0)
-
-            # pdb.set_trace()
-            # filt = self._gaussian_filter_3d(np.asarray([3, 3, 3]))
-            # filt = filt.to(image.device)
-            # mri_proxy = nib.Nifti1Image(image.numpy()[0, 0], data_dict['v2r'])
-            # nib.save(mri_proxy, 'orig.nii.gz')
-            # dat_proxy = nib.Nifti1Image(filt(image.clone()).numpy()[0, 0], data_dict['v2r'])
-            # nib.save(dat_proxy, 'gauss_blur.nii.gz')
 
             image = fn_utils.convert_to_type(self._blur(image), **type_dict)
             if len(image_shape) == 3:
@@ -299,7 +309,6 @@ class AlignLR(Transform):
                                               max_iter=max_iter, line_search_fn='strong_wolfe')}
 
         # Training
-
         io.create_dir(REGISTRATION_DEFAULTS['results_dir'])
         pdict = {**REGISTRATION_DEFAULTS}
         loss_dict = {
@@ -311,6 +320,14 @@ class AlignLR(Transform):
 
         _ = training_session.register({'mask': mask_tensor}, model, optimizer)
 
+        # pdb.set_trace()
+        # import nibabel as nib
+        # img = nib.Nifti1Image(np.transpose(mask, [1, 2, 3, 0]), v2r)
+        # nib.save(img, '~/Downloads/PD_tmp/_mask.nii.gz')
+        # img = nib.Nifti1Image(np.transpose(np.squeeze(dd['reg_mask'].cpu().detach().numpy()), [1, 2, 3, 0]), v2r)
+        # nib.save(img, '~/Downloads/PD_tmp/reg_mask.nii.gz')
+        # img = nib.Nifti1Image(np.transpose(np.squeeze(dd['reg_mask_flip'].cpu().detach().numpy()), [1, 2, 3, 0]),v2r)
+        # nib.save(img, '~/Downloads/PD_tmp/reg_mask_flip.nii.gz')
         return model['reg'].get_ras_matrix()[0].detach().cpu().numpy(), T_ref_cog
 
     def __call__(self, data_dict: dict, *args, **kwargs) -> dict:
@@ -501,17 +518,17 @@ def get_preprocessing_transforms(device: str) -> dict:
     return {
         'align_dat': AlignLR(
             keys=['dat_v2r'],
-            ref_im=['dat_brain'],
+            ref_im=['dat_mask_brain', 'dat_mask_str'],
             ref_v2r='dat_v2r',
             rescaling_factor=1,
             angle_factor=np.array([10, 1, 1]),
             tx_factor=0.1,
-            w_reg=0.1,
+            w_reg=0.5,
             device=device,
         ),
         'align_mri': AlignLR(
             keys=['label_v2r'],
-            ref_im=['mask_brain'],
+            ref_im=['mri_mask_brain'],
             ref_v2r='label_v2r',
             device=device,
             rescaling_factor=1,
@@ -522,17 +539,17 @@ def get_preprocessing_transforms(device: str) -> dict:
         'template': CreateTemplateSpace(
             keys={
                 'dat_image':   'aligned_dat_v2r',
-                'dat_brain':   'aligned_dat_v2r',
+                'dat_mask_brain':   'aligned_dat_v2r',
                 'mri_image':   'aligned_label_v2r',
-                'mask_str':    'aligned_label_v2r',
-                'mask_occ':    'aligned_label_v2r',
-                'mask_brain':  'aligned_label_v2r',
+                'mri_mask_str':    'aligned_label_v2r',
+                'mri_mask_occ':    'aligned_label_v2r',
+                'mri_mask_brain':  'aligned_label_v2r',
             },
             name='template',
         ),
         'numpy': ToNumpy(keys=[
-            'template_dat_image', 'template_dat_brain',
-            'template_mask_str',  'template_mask_occ',
-            'template_mask_brain', 'template_mri_image',
+            'template_dat_image', 'template_dat_mask_brain',
+            'template_mri_mask_str',  'template_mri_mask_occ',
+            'template_mri_mask_brain', 'template_mri_image',
         ]),
     }

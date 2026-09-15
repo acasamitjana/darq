@@ -1,6 +1,6 @@
 import argparse
 from os import listdir
-from os.path import join, exists, isdir
+from os.path import join, exists, isdir, basename
 
 import nibabel as nib
 import numpy as np
@@ -22,9 +22,10 @@ def build_subject(args: argparse.Namespace) -> pd.DataFrame:
         raise NotImplementedError("Template-based registration still not implementes")
         #TO DO
 
+    subject = basename(args.dat).split('.nii')[0]
     df = {
-        'subject': [0],
-        'id': [str(0)],
+        'subject': [subject],
+        'id': [subject],
         'mri_path': [args.mri],
         'label_path': [args.seg],
         'dat_path': [args.dat],

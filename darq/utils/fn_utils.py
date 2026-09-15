@@ -1,5 +1,6 @@
+import pdb
 import re
-from typing import Any
+from typing import Any, List
 
 import torch
 import torch.nn.functional as F
@@ -117,7 +118,7 @@ def convert_to_numpy(data: Any, dtype: Any = None) -> Any:
 
 # ── Deformation-based functions ──────────────────────────────────────────
 
-def crop_label(mask: np.ndarray, margin: int = 10, threshold: float = 0) -> tuple[np.ndarray, list]:
+def crop_label(mask: np.ndarray, margin: List[int] | int = 10, threshold: float = 0) -> tuple[np.ndarray, list]:
     """Crop a mask around all voxels above a threshold.
 
     :param mask: Input mask or label image.
@@ -146,6 +147,12 @@ def crop_label(mask: np.ndarray, margin: int = 10, threshold: float = 0) -> tupl
                    ]
 
     return mask_cropped, crop_coord
+
+def apply_crop(image, crop_coord):
+    return image[crop_coord[0][0]: crop_coord[0][1],
+                 crop_coord[1][0]: crop_coord[1][1],
+                 crop_coord[2][0]: crop_coord[2][1]
+           ]
 
 def rescale_voxel_factor(volume: np.ndarray,
                         aff: np.ndarray,
