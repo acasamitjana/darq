@@ -1,2 +1,0 @@
-[console_scripts]
-darq = scripts.dat2mri:main

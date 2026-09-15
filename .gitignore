@@ -1,7 +1,11 @@
 .idea
-*pyc
-*/__pycache__/
+*.pyc
+**/__pycache__/
 data/tutorial/output
 data/gradio_runs
 .vscode
 scripts/PD_challenge
+*.egg-info/
+.coverage
+docs/build/
+outputs/

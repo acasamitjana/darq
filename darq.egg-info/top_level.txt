@@ -1,3 +1,0 @@
-app_darq
-darq
-scripts
