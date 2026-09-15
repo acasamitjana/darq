@@ -49,7 +49,8 @@ def save_session_results(dat_orig_proxy: nib.Nifti1Image,
                         loss,
                         tag: str,
                         results_dir: str,
-                        force_flag: bool = False,) -> None:
+                        force_flag: bool = False,
+                        device: str = "cpu") -> None:
     """Resample the registered DaT image to MRI space and save session metrics.
 
     :param dat_orig_proxy: Original DaT NIfTI image proxy.
@@ -60,6 +61,7 @@ def save_session_results(dat_orig_proxy: nib.Nifti1Image,
     :param results_dir: Directory where images and TSV files are written.
     :param force_flag: If True, replace previous rows for the same subject/session when
         writing TSV files.
+    :param device: Device to use for computations ('cpu' or 'cuda').
 
     :return: None. Output images and tables are written to disk.
     """
@@ -117,9 +119,32 @@ def save_session_results(dat_orig_proxy: nib.Nifti1Image,
 
     intensity_norm = np.mean(dat_image[mask_occ['Both']])
 
-    _write_sbr_tsv(dat_image, dat_fov, mask_cau, mask_put, mask_str, mask_occ, loss, results_dir, tag)
-    _write_symmetry_tsv(dat_image, dat_v2r, dat_rot, intensity_norm,  mask_cau, mask_put, dat_fov, results_dir, tag,
-                        force_flag=force_flag)
+    _write_sbr_tsv(
+        dat_image,
+        dat_fov,
+        mask_cau,
+        mask_put,
+        mask_str,
+        mask_occ,
+        loss,
+        results_dir,
+        tag,
+        force_flag=force_flag,
+    )
+
+    _write_symmetry_tsv(
+        dat_image,
+        dat_v2r,
+        dat_rot,
+        intensity_norm,
+        mask_cau,
+        mask_put,
+        dat_fov,
+        results_dir,
+        tag,
+        device=device,
+        force_flag=force_flag,
+    )
 
 
 def _write_sbr_tsv(dat_image: np.ndarray,
@@ -182,6 +207,7 @@ def _write_symmetry_tsv(dat_image_raw: np.ndarray,
                         dat_fov: np.ndarray,
                         results_dir: str,
                         tag: str,
+                        device: str = "cpu",
                         force_flag: bool = False) -> None:
     """Compute DaT symmetry metrics and write them to a TSV file.
 
@@ -195,6 +221,7 @@ def _write_symmetry_tsv(dat_image_raw: np.ndarray,
     :param dat_fov: Foreground field-of-view mask used to restrict valid voxels.
     :param results_dir: Directory where the TSV file is written.
     :param tag: Subject/session identifier.
+    :param device: Device to use for computations ('cpu' or 'cuda').
     :param force_flag: If True, remove previous rows for the same tag before writing.
 
     :return: None. The symmetry metrics table is written to disk.
@@ -208,7 +235,7 @@ def _write_symmetry_tsv(dat_image_raw: np.ndarray,
         prev = prev.drop(tag, level='id')
 
     v2r_symm  = dat_rot @ dat_v2r
-    symm_map, l2_map = _compute_symmetry_maps(dat_image_raw / intensity_norm, v2r_symm)
+    symm_map, l2_map = _compute_symmetry_maps(dat_image_raw / intensity_norm, v2r_symm, device=device)
 
     rows = []
     for metric, arr in (('lncc', symm_map), ('l2', l2_map)):
@@ -226,11 +253,12 @@ def _write_symmetry_tsv(dat_image_raw: np.ndarray,
     df.to_csv(out_file, sep='\t', index=False)
 
 
-def _compute_symmetry_maps(dat_norm: np.ndarray, v2r_symm: np.ndarray,) -> tuple[np.ndarray, np.ndarray]:
+def _compute_symmetry_maps(dat_norm: np.ndarray, v2r_symm: np.ndarray, device: str = "cpu") -> tuple[np.ndarray, np.ndarray]:
     """Compute local symmetry maps between a DaT image and its left-right flipped version.
 
     :param dat_norm: Intensity-normalized DaT image.
     :param v2r_symm: Affine matrix defining the symmetry space used for the flip.
+    :param device: Device to use for computations ('cpu' or 'cuda').
 
     :return: Tuple containing the local NCC symmetry map and the voxelwise L2
              difference map.
@@ -248,10 +276,10 @@ def _compute_symmetry_maps(dat_norm: np.ndarray, v2r_symm: np.ndarray,) -> tuple
     dat_t    = torch.from_numpy(dat_norm)
     dat_flip = fast_3D_interp_torch(dat_t, di, dj, dk, mode='linear')
 
-    dat_t4    = dat_t.unsqueeze(0).unsqueeze(0).to('cuda:0')
-    dat_flip4 = dat_flip.unsqueeze(0).unsqueeze(0).to('cuda:0')
+    dat_t4    = dat_t.unsqueeze(0).unsqueeze(0).to(device)
+    dat_flip4 = dat_flip.unsqueeze(0).unsqueeze(0).to(device)
 
-    lncc_fn  = NCCLoss(name='lncc-9', kernel_var=[9, 9, 9], device='cuda:0')
+    lncc_fn  = NCCLoss(name='lncc-9', kernel_var=[9, 9, 9], device=device)
     symm_map = np.squeeze(lncc_fn.ncc(dat_t4, dat_flip4).detach().cpu().numpy())
     l2_map   = np.squeeze(((dat_t4 - dat_flip4)**2).sqrt().detach().cpu().numpy())
 

@@ -6,7 +6,7 @@ from os.path import join, exists
 import shutil
 import numpy as np
 import torch
-from skimage.morphology import binary_dilation, binary_opening, ball
+from skimage.morphology import dilation, binary_opening, ball
 from sklearn.cluster import KMeans
 from sklearn.mixture import GaussianMixture as GMM
 from skimage import measure
@@ -258,6 +258,7 @@ def process_subject(data_dict: dict, preproc_tf: dict, dat_tf: list,
         tag=run_info["tag"],
         loss=tensor_dict["loss"],
         force_flag=args.force,
+        device=run_info["device"],
     )
 
     _clean_temp_dir(run_info["temp_dir"])
@@ -366,7 +367,7 @@ def _compute_symmetric_dat(dat_raw: np.ndarray, template_v2r: np.ndarray) -> np.
 def _build_dat_prior_cuboid(dat_symm: np.ndarray, template_v2r: np.ndarray) -> np.ndarray:
     """Build a cuboid prior around the high-uptake symmetric DaT region."""
     mask_symm = _get_dat_mask(dat_symm, template_v2r)
-    mask_dilated = binary_dilation(mask_symm, np.ones((10, 10, 10)))
+    mask_dilated = dilation(mask_symm, np.ones((10, 10, 10)))
 
     _, crop = fn_utils.crop_label(mask_dilated, margin=5)
 
@@ -622,6 +623,7 @@ def _run_registration_step(tensor_dict: dict,
     session = models.JointInstanceReg(
         loss_dict,
         main_dict,
+        device=device,
         da=[],
         trainable_keys={"reg": "reg"},
         verbose=True,
@@ -643,7 +645,8 @@ def _save_subject_outputs(data_dict: dict,
                           output_dir: str,
                           tag: str,
                           loss: float,
-                          force_flag: bool = False) -> None:
+                          force_flag: bool = False,
+                          device: str = "cpu") -> None:
     """Save affine matrix, registered outputs and quantitative results."""
     tensor_dict = ToNumpy(
         keys=["ref_image", "flo_image", "reg_image"],
@@ -666,6 +669,7 @@ def _save_subject_outputs(data_dict: dict,
         tag=data_dict["id"],
         results_dir=output_dir,
         force_flag=force_flag,
+        device=device,
     )
 
 

@@ -1,4 +1,5 @@
 import argparse
+from html import parser
 
 
 def parse_args() -> argparse.Namespace:
@@ -46,6 +47,21 @@ def parse_args() -> argparse.Namespace:
                         help="Recompute even if output already exists.")
 
     # hardware / debug
-    parser.add_argument("--cpu",   action='store_true')
+    hardware_group = parser.add_mutually_exclusive_group()
+
+    hardware_group.add_argument(
+        "--cpu",
+        action="store_true",
+        help="Force CPU execution.",
+    )
+
+    hardware_group.add_argument(
+        "--device",
+        default=None,
+        help=(
+            "Explicit PyTorch execution device. "
+            "Examples: cpu, cuda:0, cuda:1."
+        ),
+    )
 
     return parser.parse_args()

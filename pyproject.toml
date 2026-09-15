@@ -21,7 +21,12 @@ dependencies = [
     "scipy",
     "tqdm",
     "joblib",
-    "gradio"
+    "gradio",
+    "matplotlib",
+    "fastapi",
+    "uvicorn",
+    "python-multipart",
+    "requests",
 ]
 
 [project.optional-dependencies]
@@ -38,7 +43,7 @@ darq = "scripts.darq_cli:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["darq*", "scripts*"]
+include = ["darq*", "scripts*", "webapp*"]
 
 [tool.setuptools]
 include-package-data = true

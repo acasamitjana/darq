@@ -4,8 +4,7 @@
 import nibabel as nib
 from torch.utils.data import Dataset
 import numpy as np
-from skimage.morphology import binary_opening
-from skimage import filters, measure
+from skimage import measure
 from sklearn.cluster import KMeans
 from sklearn.mixture import GaussianMixture as GMM
 
@@ -79,7 +78,7 @@ class MRI_DaT(Dataset):
             print(subject['mri'].affine)
 
         subject['label_v2r'] = subject['label'].affine
-        subject['label_image'] = np.array(subject['label'].dataobj)
+        subject['label_image'] = np.asarray(subject['label'].dataobj)
         subject['label_image'] = remove_synthseg_hemisphere(subject['label_image'])
 
         if self.crop_labels:
@@ -93,7 +92,7 @@ class MRI_DaT(Dataset):
             subject['label_crop'] = T_crop
 
         subject['mri'] = fn_utils.vol_resample_fast(nib.Nifti1Image(subject['label_image'], subject['label_v2r']), subject['mri'], mode='nearest')
-        subject['mri_image'] = np.array(subject['mri'].dataobj)
+        subject['mri_image'] = np.asarray(subject['mri'].dataobj)
         subject['mri_mask_str'], subject['mri_mask_occ'] = self._get_ROI_masks(subject['label_image'])
         non_cerebrum = (subject['label_image'] <= 0) | (subject['label_image'] == 7) | (subject['label_image'] == 8) | (subject['label_image'] == 46) | (subject['label_image'] == 47) | (subject['label_image'] == 15) | (subject['label_image'] == 16) | (subject['label_image'] == 24)
         subject['mri_mask_brain'] = (1 - non_cerebrum).astype('float')
@@ -106,7 +105,7 @@ class MRI_DaT(Dataset):
         mri_res = np.sqrt(np.sum(subject['label_v2r'] * subject['label_v2r'], axis=0))[:-1]
 
         # get brain segmentation from DaT image
-        dat_image = np.squeeze(np.array(subject['dat'].dataobj).astype('float32'))
+        dat_image = np.squeeze(np.asarray(subject['dat'].dataobj).astype('float32'))
         n_clusters = 6
         dat_seg = GMM(n_components=n_clusters, random_state=0).fit_predict(dat_image.reshape((-1, 1)))
         dat_seg = dat_seg.reshape(dat_image.shape)

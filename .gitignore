@@ -9,3 +9,4 @@ scripts/PD_challenge
 .coverage
 docs/build/
 outputs/
+webapp/jobs/
