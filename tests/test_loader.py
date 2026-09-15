@@ -18,8 +18,8 @@ def test_build_subject_creates_one_row_dataframe():
 
     assert isinstance(df, pd.DataFrame)
     assert len(df) == 1
-    assert df.iloc[0]["subject"] == 0
-    assert df.iloc[0]['id'] == "0"
+    assert df.iloc[0]["subject"] == "dat"
+    assert df.iloc[0]['id'] == "dat"
     assert df.iloc[0]['mri_path'] == "mri.nii.gz"
     assert df.iloc[0]['label_path'] == "seg.nii.gz"
     assert df.iloc[0]['dat_path'] == "dat.nii.gz"

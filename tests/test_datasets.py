@@ -94,22 +94,22 @@ def test_getitem_loads_synthetic_nifti_subject(tmp_path):
     assert item["dat_image"].shape == shape
     assert item["label_image"].shape == shape
 
-    assert item["mask_str"].shape == shape
-    assert item["mask_occ"].shape == shape
-    assert item["mask_brain"].shape == shape
+    assert item["mri_mask_str"].shape == shape
+    assert item["mri_mask_occ"].shape == shape
+    assert item["mri_mask_brain"].shape == shape
 
-    assert item["mask_cau"].shape == shape
-    assert item["mask_pu"].shape == shape
+    assert item["mri_mask_cau"].shape == shape
+    assert item["mri_mask_pu"].shape == shape
 
-    assert item["dat_brain"].shape == shape + (1,)
-    assert item["dat_str"].shape == shape + (1,)
+    assert item["dat_mask_brain"].shape == shape
+    assert item["dat_mask_str"].shape == shape
 
     assert item["dat_v2r"].shape == (4, 4)
     assert item["label_v2r"].shape == (4, 4)
 
-    assert item["mask_str"].sum() > 0
-    assert item["mask_brain"].sum() > 0
-    assert item["dat_brain"].sum() > 0
+    assert item["mri_mask_str"].sum() > 0
+    assert item["mri_mask_brain"].sum() > 0
+    assert item["dat_mask_brain"].sum() > 0
 
 def _make_synthetic_subject(tmp_path, shape=(20, 20, 20), mri_affine=None, label_affine=None):
     if mri_affine is None:

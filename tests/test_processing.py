@@ -283,27 +283,61 @@ def test_normalize_dat_inside_mask_sets_outside_to_zero():
     assert np.max(out[dat_mask]) > 0
 
 
-def test_estimate_dat_brain_foreground_with_fake_gmm(monkeypatch):
-    dat_symm = np.arange(6, dtype="float32").reshape(3, 2, 1)
-    reference_brain_mask = np.zeros_like(dat_symm)
-    reference_brain_mask[0, 0, 0] = 1
+def _fake_gmm_two_clusters():
+    """GMM stand-in that labels intensities above 2.5 as foreground (1), else background (0)."""
 
     class FakeGMM:
         def __init__(self, *args, **kwargs):
             pass
 
         def fit_predict(self, x):
-            return np.arange(x.shape[0])
+            return (x.flatten() > 2.5).astype(int)
 
-    monkeypatch.setattr(processing, "GMM", FakeGMM)
+    return FakeGMM
 
-    brain_dat = processing._estimate_dat_brain_foreground(
+
+def test_estimate_dat_brain_with_fake_gmm(monkeypatch):
+    shape = (12, 12, 12)
+    dat_symm = np.zeros(shape, dtype="float32")
+    dat_symm[2:11, 2:11, 2:11] = 5.0  # 9x9x9 = 729-voxel foreground cube
+    dat_mask = np.ones(shape, dtype=bool)
+    reference_mask = np.zeros(shape, dtype="float32")
+    reference_mask[0:10, 0:10, 0:1] = 1.0  # sum == 100
+    dat_v2r = np.eye(4, dtype="float32")
+
+    monkeypatch.setattr(processing, "GMM", _fake_gmm_two_clusters())
+
+    brain_dat = processing._estimate_dat_brain(
         dat_symm=dat_symm,
-        reference_brain_mask=reference_brain_mask,
+        dat_mask=dat_mask,
+        reference_mask=reference_mask,
+        dat_v2r=dat_v2r,
     )
 
     assert brain_dat.shape == dat_symm.shape
-    assert np.sum(brain_dat) == 3
+    assert np.array_equal(brain_dat, (dat_symm == 5.0).astype(brain_dat.dtype))
+
+
+def test_estimate_dat_striatum_with_fake_gmm(monkeypatch):
+    shape = (12, 12, 12)
+    dat_symm = np.zeros(shape, dtype="float32")
+    dat_symm[2:11, 2:11, 2:11] = 5.0  # 9x9x9 = 729-voxel foreground cube
+    dat_mask = np.ones(shape, dtype=bool)
+    reference_mask = np.zeros(shape, dtype="float32")
+    reference_mask[0:10, 0:10, 0:1] = 1.0  # sum == 100
+    dat_v2r = np.eye(4, dtype="float32")
+
+    monkeypatch.setattr(processing, "GMM", _fake_gmm_two_clusters())
+
+    dat_str_mask = processing._estimate_dat_striatum(
+        dat_symm=dat_symm,
+        dat_mask=dat_mask,
+        reference_mask=reference_mask,
+        dat_v2r=dat_v2r,
+    )
+
+    assert dat_str_mask.shape == dat_symm.shape
+    assert np.array_equal(dat_str_mask, (dat_symm == 5.0).astype(dat_str_mask.dtype))
 
 
 def test_build_mri_dat_mask_with_fake_kmeans(monkeypatch):
@@ -345,11 +379,8 @@ def test_estimate_initial_translation():
 
 def test_simulate_dat_from_mri_applies_transforms(monkeypatch):
     data_dict = {
-        "template_mask_str": np.ones((2, 2, 2), dtype="float32"),
+        "template_mri_mask_str": np.ones((2, 2, 2), dtype="float32"),
     }
-
-    dat_mask = np.zeros((2, 2, 2), dtype=bool)
-    dat_mask[1, 1, 1] = True
 
     def transform(data):
         data["simulated_dat"] = data["simulated_dat"] * 2
@@ -366,40 +397,34 @@ def test_simulate_dat_from_mri_applies_transforms(monkeypatch):
         lambda simulated_dat: (mri_mask, sim_dat),
     )
 
-    monkeypatch.setattr(
-        processing,
-        "_estimate_initial_translation",
-        lambda mri, dat: np.array([1.0, 2.0, 3.0]),
-    )
-
     out_data, mri_context = processing._simulate_dat_from_mri(
         data_dict=data_dict,
         dat_tf=[transform],
         template_v2r=_eye(),
-        dat_mask=dat_mask,
     )
 
     assert out_data["transform_applied"] is True
     assert "v2r" in out_data
     assert "simulated_dat" in out_data
-    np.testing.assert_allclose(mri_context["tx_init"], np.array([1.0, 2.0, 3.0]))
-    np.testing.assert_allclose(mri_context["sim_dat"], sim_dat)
+    np.testing.assert_allclose(mri_context["sim_dat_str_mask"], mri_mask)
+    np.testing.assert_allclose(mri_context["sim_dat_image"], sim_dat)
 
 
 def test_build_registration_tensors_shapes_and_device():
     data_dict = {
-        "template_mask_brain": np.ones((2, 2, 2), dtype="float32"),
-        "template_mask_occ": np.zeros((2, 2, 2), dtype="float32"),
+        "template_v2r": _eye(),
+        "template_mri_mask_brain": np.ones((2, 2, 2), dtype="float32"),
+        "template_mri_mask_occ": np.zeros((2, 2, 2), dtype="float32"),
     }
 
     dat_context = {
-        "template_v2r": _eye(),
-        "dat_mask": np.ones((2, 2, 2), dtype=bool),
-        "brain_dat": np.ones((2, 2, 2), dtype="float32"),
+        "dat_brain_mask": np.ones((2, 2, 2), dtype=bool),
+        "dat_str_mask": np.zeros((2, 2, 2), dtype=bool),
+        "dat_symm_str_mask": np.ones((2, 2, 2), dtype="float32"),
     }
 
     mri_context = {
-        "mri_mask": np.zeros((2, 2, 2), dtype=bool),
+        "sim_dat_str_mask": np.zeros((2, 2, 2), dtype=bool),
     }
 
     tensors = processing._build_registration_tensors(
@@ -412,7 +437,7 @@ def test_build_registration_tensors_shapes_and_device():
     assert tensors["ref_image"].shape == (1, 1, 2, 2, 2)
     assert tensors["ref_mask"].shape == (1, 2, 2, 2, 2)
     assert tensors["flo_image"].shape == (1, 1, 2, 2, 2)
-    assert tensors["flo_mask"].shape == (1, 2, 2, 2, 2)
+    assert tensors["flo_mask"].shape == (1, 4, 2, 2, 2)
     assert tensors["ref_image"].device.type == "cpu"
     np.testing.assert_allclose(tensors["template_v2r"], _eye())
 
@@ -469,8 +494,6 @@ def test_run_registration_step_uses_model_optimizer_loss_and_session(monkeypatch
     }
     dat_context = {
         "template_v2r": _eye(),
-    }
-    mri_context = {
         "tx_init": np.array([1.0, 2.0, 3.0]),
     }
 
@@ -480,7 +503,6 @@ def test_run_registration_step_uses_model_optimizer_loss_and_session(monkeypatch
         tensor_dict=tensor_dict,
         data_dict=data_dict,
         dat_context=dat_context,
-        mri_context=mri_context,
         main_dict={"num_epochs": 1},
         args=args,
         device="cpu",
@@ -654,20 +676,22 @@ def test_process_subject_orchestrates_all_steps(monkeypatch, tmp_path):
         "temp_dir": str(tmp_path / "tmp"),
     }
 
-    dat_context = {
-        "template_v2r": _eye(),
-        "dat_mask": np.ones((2, 2, 2), dtype=bool),
-        "brain_dat": np.ones((2, 2, 2), dtype="float32"),
-    }
+    sim_dat_str_mask = np.zeros((2, 2, 2), dtype=bool)
+    sim_dat_str_mask[0, 0, 0] = True
 
     mri_context = {
-        "mri_mask": np.ones((2, 2, 2), dtype=bool),
-        "tx_init": np.array([0.0, 0.0, 0.0]),
+        "sim_dat_str_mask": sim_dat_str_mask,
+        "sim_dat_image": np.ones((2, 2, 2), dtype="float32"),
     }
 
-    tensor_dict = {
-        "loss": 0.25,
-        "affine_ras": torch.eye(4).unsqueeze(0),
+    dat_str_mask = np.zeros((2, 2, 2), dtype=bool)
+    dat_str_mask[1, 1, 1] = True
+
+    dat_context = {
+        "template_v2r": _eye(),
+        "dat_brain_mask": np.ones((2, 2, 2), dtype=bool),
+        "dat_str_mask": dat_str_mask,
+        "dat_symm_str_mask": np.ones((2, 2, 2), dtype="float32"),
     }
 
     def fake_prepare_subject_run(data, main):
@@ -681,22 +705,24 @@ def test_process_subject_orchestrates_all_steps(monkeypatch, tmp_path):
     def fake_run_preprocessing_step(data_dict, preproc_tf, output_dir, tag):
         calls.append("preprocess")
         data_dict["preprocessed"] = True
+        data_dict["template_v2r"] = _eye()
+        data_dict["template_mri_mask_brain"] = np.ones((2, 2, 2), dtype="float32")
         return data_dict
 
-    def fake_build_dat_symmetry_and_masks(data_dict):
-        calls.append("dat_context")
-        return dat_context
-
-    def fake_simulate_dat_from_mri(data_dict, dat_tf, template_v2r, dat_mask):
+    def fake_simulate_dat_from_mri(data_dict, dat_tf, template_v2r):
         calls.append("simulate")
         return data_dict, mri_context
+
+    def fake_build_dat_symmetry_and_masks(data_dict, mri_brain_mask, mri_str_mask):
+        calls.append("dat_context")
+        return dat_context
 
     def fake_build_registration_tensors(data_dict, dat_context, mri_context, device):
         calls.append("build_tensors")
         return {"built": True}
 
     def fake_run_registration_step(tensor_dict, data_dict, dat_context,
-                                   mri_context, main_dict, args, device):
+                                   main_dict, args, device):
         calls.append("register")
         return {"loss": 0.25, "affine_ras": torch.eye(4).unsqueeze(0)}
 
@@ -712,8 +738,8 @@ def test_process_subject_orchestrates_all_steps(monkeypatch, tmp_path):
     monkeypatch.setattr(processing, "_prepare_subject_run", fake_prepare_subject_run)
     monkeypatch.setattr(processing, "_should_skip_subject", fake_should_skip_subject)
     monkeypatch.setattr(processing, "_run_preprocessing_step", fake_run_preprocessing_step)
-    monkeypatch.setattr(processing, "_build_dat_symmetry_and_masks", fake_build_dat_symmetry_and_masks)
     monkeypatch.setattr(processing, "_simulate_dat_from_mri", fake_simulate_dat_from_mri)
+    monkeypatch.setattr(processing, "_build_dat_symmetry_and_masks", fake_build_dat_symmetry_and_masks)
     monkeypatch.setattr(processing, "_build_registration_tensors", fake_build_registration_tensors)
     monkeypatch.setattr(processing, "_run_registration_step", fake_run_registration_step)
     monkeypatch.setattr(processing, "_save_subject_outputs", fake_save_subject_outputs)
@@ -732,8 +758,8 @@ def test_process_subject_orchestrates_all_steps(monkeypatch, tmp_path):
         "prepare",
         "skip_check",
         "preprocess",
-        "dat_context",
         "simulate",
+        "dat_context",
         "build_tensors",
         "register",
         "save",
