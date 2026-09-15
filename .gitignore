@@ -1,7 +1,7 @@
 .idea
 *pyc
-*_pycache_*
+*/__pycache__/
 data/tutorial/output
 data/gradio_runs
 .vscode
-
+scripts/PD_challenge

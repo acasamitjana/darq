@@ -1,4 +1,6 @@
 import os
+import pdb
+
 from joblib import delayed, Parallel  # kept for future parallel batch processing
 
 from darq.cli import parse_args
@@ -37,7 +39,7 @@ def main() -> None:
     else:
         subject_list = build_subject(args)
 
-    dataset = MRI_DaT(subject_list, transforms=[], crop_labels=True, crop_dat=False)
+    dataset = MRI_DaT(subject_list, transforms=[], crop_labels=True, crop_dat=True)
 
     print(f'Total sessions to process: N={len(subject_list)}\n')
 
